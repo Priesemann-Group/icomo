@@ -55,7 +55,7 @@ testpaths = [
 ]
 
 [tool.black]
-line-length = 79
+line-length = 88
 target-version = ["py38"]
 force-exclude = '''(?x)(
     docs/*
@@ -64,13 +64,13 @@ force-exclude = '''(?x)(
 
 [tool.isort]
 ensure_newline_before_comments = true
-line_length = 79
+line_length = 88
 multi_line_output = 3
 include_trailing_comma = true
 skip_glob = ["docs/*", "*.egg-info"]
 
 [tool.ruff]
-line-length = 79
+line-length = 88
 force-exclude = true
 src = ["comodi"]
 exclude = [
