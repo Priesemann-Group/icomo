@@ -31,8 +31,33 @@ import comodi
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.autosectionlabel",
+"sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+#    "m2r",
     "myst_parser",
     "nbsphinx"
+]
+
+
+
+# Mock imports
+autodoc_mock_imports = [
+    "numpy",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "mpl_toolkits",
+    "scipy",
+    "pymc",
+    "pytensor",
+    "pandas",
+    "filelock",
+    "arviz",
+    "optax"
+    "jax"
+    "jax.numpy"
+    "diffrax"
 ]
 
 nbsphinx_allow_errors = True
@@ -67,7 +92,7 @@ release = comodi.__version__
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -88,21 +113,45 @@ todo_include_todos = False
 #
 html_theme = "sphinx_rtd_theme"
 
+html_show_sourcelink = False
+
+
 # Theme options are theme-specific and customize the look and feel of a
 # theme further.  For a list of options available for each theme, see the
 # documentation.
 #
 # html_theme_options = {}
 
+html_theme_options = {
+    "collapse_navigation": False,
+    "display_version": False,
+    "navigation_depth": 4,
+    "sticky_navigation": True,
+}
+
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 # html_static_path = ["_static"]
 
-html_logo = "./images/logo.png"
-html_theme_options = {
-    'logo_only': False,
-}
+# Napoleon settings
+# napoleon_google_docstring = True
+# napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = True
+# napoleon_include_private_with_doc = False
+# napoleon_include_special_with_doc = True
+# napoleon_use_admonition_for_examples = False
+# napoleon_use_admonition_for_notes = False
+# napoleon_use_admonition_for_references = False
+napoleon_use_ivar = True  # True enables links for attribute types
+napoleon_use_param = True  # True enables links for parameter types
+napoleon_use_rtype = False
+
+
+#html_logo = "./images/logo.png"
+#html_theme_options = {
+#    'logo_only': False,
+#}
 
 
 # -- Options for HTMLHelp output ---------------------------------------
@@ -165,3 +214,26 @@ texinfo_documents = [
      "One line description of project.",
      "Miscellaneous"),
 ]
+
+
+# -- Options for intersphinx -------------------------------------------
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "pymc": ("https://www.pymc.io/projects/docs/en/stable", None),
+    "pytensor": ("https://pytensor.readthedocs.io/en/latest/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "arviz": ("https://python.arviz.org/en/stable/", None),
+    "jax": ("https://jax.readthedocs.io/en/latest/", None),
+    "diffrax": ("https://docs.kidger.site/diffrax/", None),
+    "optax": ("https://optax.readthedocs.io/en/latest/", None),
+
+}
+
+imgmath_image_format = "svg"
+imgmath_font_size = 14
+
+autodoc_member_order = "bysource"

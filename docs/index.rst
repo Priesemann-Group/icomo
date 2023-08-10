@@ -13,7 +13,7 @@ Welcome to Compartmental Models Inference Toolbox's documentation!
    Example <example>
    contributing
    changelog
-   
+
 
 Indices and tables
 ==================

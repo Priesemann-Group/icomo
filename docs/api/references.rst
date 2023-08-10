@@ -2,7 +2,8 @@ API references
 ==============
 
 .. automodule:: comodi
-    :members:
+   :imported-members:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. automodule:: comodi.comodi
-    :members:
