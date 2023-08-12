@@ -73,7 +73,7 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 
 # General information about the project.
-project = "Inference of Compartmental Models Toolbox"
+project = "ICoMo Toolbox"
 copyright = "2023, Jonas Dehning"
 author = "Jonas Dehning"
 
@@ -126,6 +126,25 @@ html_show_sourcelink = False
 html_theme_options = {
     "collapse_navigation": False,
     "navigation_depth": 4,
+    "home_page_in_toc": True,
+    "show_navbar_depth": 2,
+    "repository_url": "https://github.com/Priesemann-Group/icomo",
+    "use_source_button": False,
+    "use_edit_page_button": True,
+    "use_repository_button": False,
+    "use_issues_button": True,
+    "use_download_button": True,
+    "path_to_docs": "docs",
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/Priesemann-Group/icomo",  # required
+            # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        }
+    ],
+    "header_links_before_dropdown": 1
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -151,6 +170,8 @@ napoleon_use_rtype = False
 #html_theme_options = {
 #    'logo_only': False,
 #}
+html_title = f"ICoMo Toolbox\n{release}"
+
 
 
 # -- Options for HTMLHelp output ---------------------------------------

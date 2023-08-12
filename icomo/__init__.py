@@ -18,14 +18,16 @@ from .comp_model import (
 from .slow_modulation import sigmoidal_changepoints, priors_for_cps
 from .tools import hierarchical_priors
 
+import importlib_metadata
+
+
+def _get_version():
+    try:
+        return importlib_metadata.version("icomo")
+    except importlib_metadata.PackageNotFoundError:
+        return "unknown"
+
 
 __author__ = "Jonas Dehning"
 __email__ = "jonas.dehning@ds.mpg.de"
-
-from importlib.metadata import version, PackageNotFoundError
-
-try:
-    __version__ = version("icomo")
-except PackageNotFoundError:
-    # package is not installed
-    pass
+__version__ = _get_version()
