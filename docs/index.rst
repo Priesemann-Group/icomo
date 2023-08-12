@@ -1,5 +1,5 @@
 Welcome to Inference of Compartmental Models Toolbox's documentation!
-==================================================================
+=====================================================================
 
 
 .. toctree::

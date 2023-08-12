@@ -125,9 +125,7 @@ html_show_sourcelink = False
 
 html_theme_options = {
     "collapse_navigation": False,
-    "display_version": True,
     "navigation_depth": 4,
-    "sticky_navigation": True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
