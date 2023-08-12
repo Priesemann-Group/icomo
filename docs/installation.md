@@ -14,7 +14,7 @@ You might want to create a virtual environment first, e.g. using
 
 ```bash
 $ mamba create -n comodi_env comodi
-$ conda activate comodi_env
+$ mamba activate comodi_env
 ```
 
 or directly using venv:
