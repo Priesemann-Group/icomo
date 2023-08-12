@@ -1,61 +1,17 @@
-name: Release
-
+name: Publish to PyPI.org
 on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
   release:
-    name: Release
+    types: [published]
+jobs:
+  pypi:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  
-
-    defaults:
-      run:
-        shell: bash -l {0}
-
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: conda-incubator/setup-miniconda@v2
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          miniconda-version: "latest"
-          mamba-version: "1.*"
-          environment-file: conda/dev.yaml
-          channels: conda-forge,nodefaults
-          channel-priority: true
-          activate-environment: comodi
-          use-mamba: true
-          miniforge-variant: Mambaforge
-
-      - name: Install deps
-        run: poetry install
-
-      - name: Run semantic release (for tests)
-        if: ${{ github.event_name != 'workflow_dispatch' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make release-dry
-
-      - name: Release command
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          poetry config pypi-token.pypi ${PYPI_TOKEN}
-          make release-ci
-
-      - name: Generate documentation with changes from semantic-release
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: make docs-build
-
-      - name: GitHub Pages action
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: peaceiris/actions-gh-pages@v3.5.9
+          fetch-depth: 0
+      - run: python3 -m pip install --upgrade build && python3 -m build
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_build/html
+          password: ${{ secrets.PYPI_API_TOKEN }}
