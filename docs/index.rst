@@ -1,4 +1,4 @@
-Welcome to Compartmental Models Inference Toolbox's documentation!
+Welcome to Inference of Compartmental Models Toolbox's documentation!
 ==================================================================
 
 

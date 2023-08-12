@@ -1,4 +1,4 @@
-* Compartmental Models Inference Toolbox version:
+* ICoMo version:
 * Python version:
 * Operating System:
 

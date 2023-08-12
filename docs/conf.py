@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# comodi documentation build configuration file, created by
+# icomo documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun  9 13:47:02 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -73,7 +73,7 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 
 # General information about the project.
-project = "Compartmental Models Inference Toolbox"
+project = "Inference of Compartmental Models Toolbox"
 copyright = "2023, Jonas Dehning"
 author = "Jonas Dehning"
 
@@ -83,7 +83,7 @@ author = "Jonas Dehning"
 #
 
 from importlib.metadata import version
-release = version('myproject')
+release = version('icomo')
 # for example take major/minor
 version = '.'.join(release.split('.')[:2])
 
@@ -125,7 +125,7 @@ html_show_sourcelink = False
 
 html_theme_options = {
     "collapse_navigation": False,
-    "display_version": False,
+    "display_version": True,
     "navigation_depth": 4,
     "sticky_navigation": True,
 }
@@ -158,7 +158,7 @@ napoleon_use_rtype = False
 # -- Options for HTMLHelp output ---------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "comodidoc"
+htmlhelp_basename = "icomodoc"
 
 
 # -- Options for LaTeX output ------------------------------------------
@@ -185,8 +185,8 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass
 # [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "comodi.tex",
-     "Compartmental Models Inference Toolbox Documentation",
+    (master_doc, "icomo.tex",
+     "Inference of Compartmental Models Toolbox Documentation",
      "Jonas Dehning", "manual"),
 ]
 
@@ -196,8 +196,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, "comodi",
-     "Compartmental Models Inference Toolbox Documentation",
+    (master_doc, "icomo",
+     "Inference of Compartmental Models Toolbox Documentation",
      [author], 1)
 ]
 
@@ -208,10 +208,10 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, "comodi",
-     "Compartmental Models Inference Toolbox Documentation",
+    (master_doc, "icomo",
+     "Inference of Compartmental Models Toolbox Documentation",
      author,
-     "comodi",
+     "icomo",
      "One line description of project.",
      "Miscellaneous"),
 ]

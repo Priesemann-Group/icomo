@@ -1,4 +1,4 @@
-# Compartmental Models Inference Toolbox (CoModI)
+# Inference of Compartmental Models (ICoMo) Toolbox
 
 This toolbox aims to simplify the construction of compartmental models and the inference of their parameters.
 
@@ -9,7 +9,7 @@ packages like [JAX](https://jax.readthedocs.io/en/latest/),
 [PyMC](https://www.pymc.io/welcome.html) to build, automatically differentiate and fit
 compartmental models.
 
-* Documentation: https://comodi.readthedocs.io.
+* Documentation: https://icomo.readthedocs.io.
 
 ## Features
 

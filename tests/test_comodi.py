@@ -1,5 +1,5 @@
 """
-Tests for comodi package.
+Tests for icomo package.
 """
 import pytest
 

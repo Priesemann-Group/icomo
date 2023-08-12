@@ -7,7 +7,7 @@ body:
 - type: markdown
   attributes:
     value: >
-      **Thank you for wanting to report a bug in Compartmental Models Inference Toolbox!**
+      **Thank you for wanting to report a bug in the ICoMo Toolbox!**
 
 
       ⚠
@@ -15,7 +15,7 @@ body:
       GitHub][issue search].
 
 
-      [issue search]: https://github.com/Compartmental Models Inference Toolbox/issues?q=is%3Aopen+is%3Aissue+label%3Abug
+      [issue search]: https://github.com/Prieseman-Lab/icomo/issues?q=is%3Aopen+is%3Aissue+label%3Abug
 
 - type: textarea
   attributes:
@@ -124,14 +124,14 @@ body:
 
 - type: textarea
   attributes:
-    # label: Compartmental Models Inference Toolbox version
+    # label: icomo version
     # description: >-
-     # Paste verbatim output from `Compartmental Models Inference Toolbox --version` below, under the prompt line.
+     # Paste verbatim output from `icomo --version` below, under the prompt line.
      # Don't wrap it with triple backticks &mdash; your whole input will be
      # turned into a code snippet automatically.
     render: console
     placeholder: |
-      python -m pip show Compartmental Models Inference Toolbox
+      python -m pip show icomo
   validations:
     required: true
 
@@ -139,9 +139,9 @@ body:
   attributes:
     label: Code of Conduct
     description: |
-      Read the [`Compartmental Models Inference Toolbox` Code of Conduct][CoC] first.
+      Read the [`ICoMo Toolbox` Code of Conduct][CoC] first.
 
-      [CoC]: https://github.com/comodi/coc/CODE_OF_CONDUCT.md
+      [CoC]: https://github.com/icomo/coc/CODE_OF_CONDUCT.md
     options:
     - label: I agree to follow the Code of Conduct
       required: true

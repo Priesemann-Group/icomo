@@ -2,14 +2,14 @@
 blank_issues_enabled: true
 contact_links:
 - name: 🙋  Usage Questions
-  url: https://github.com/comodi/discussions
+  url: https://github.com/icomo/discussions
   about: |
-    Use Compartmental Models Inference Toolbox's GitHub Discussions to ask "How do I do X with Cookiecutter?".
+    Use Inference of Compartmental Models Toolbox's GitHub Discussions to ask "How do I do X with Cookiecutter?".
 - name: 📖  Tutorial
-  url: https://github.com/comodi
+  url: https://github.com/icomo
   about: |
-    The Compartmental Models Inference Toolbox tutorial is continually updated and provides an in depth walkthrough
+    The ICoMo Toolbox tutorial is continually updated and provides an in depth walkthrough
     of how to use the latest release of Cookiecutter.
-- name: 📝  Compartmental Models Inference Toolbox Code of Conduct
-  url: https://github.com/comodi/coc/CODE_OF_CONDUCT.md
+- name: 📝  ICoMo Toolbox Code of Conduct
+  url: https://github.com/icomo/coc/CODE_OF_CONDUCT.md
   about: Expectations for how people will interact with each other on Cookiecutter's GitHub.

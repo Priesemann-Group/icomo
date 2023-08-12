@@ -9,7 +9,7 @@ import pymc as pm
 import pymc.sampling.jax
 import pytensor.tensor as pt
 
-import comodi
+import icomo
 
 
 def model_cases_seropositivity(
@@ -46,7 +46,7 @@ def model_cases_seropositivity(
         gamma = pm.Deterministic("gamma", 1 / inv_gamma)
 
         eta_base = pm.Normal("eta_base", 0, 1) if not sim_model else 0.3
-        t_pos_rep, Delta_rhos_rep, transients_rep = comodi.priors_for_cps(
+        t_pos_rep, Delta_rhos_rep, transients_rep = icomo.priors_for_cps(
             cp_dim="cp_reporting_id",
             time_dim="t_cases_data",
             name_positions="t_pos_rep",
@@ -58,7 +58,7 @@ def model_cases_seropositivity(
 
         eta_report = pt.sigmoid(
             eta_base
-            + comodi.slow_modulation.sigmoidal_changepoints(
+            + icomo.slow_modulation.sigmoidal_changepoints(
                 ts_out=t_cases_data,
                 positions_cp=t_pos_rep,
                 magnitudes_cp=Delta_rhos_rep,
@@ -67,7 +67,7 @@ def model_cases_seropositivity(
         )
         pm.Deterministic("eta_report", eta_report, dims=("t_cases_data",))
 
-        t_pos_R, Delta_rhos_R, transients_R = comodi.priors_for_cps(
+        t_pos_R, Delta_rhos_R, transients_R = icomo.priors_for_cps(
             cp_dim="cp_R_id",
             time_dim="t_solve_ODE",
             name_positions="t_pos_R",
@@ -78,7 +78,7 @@ def model_cases_seropositivity(
         )
 
         reproduction_scale_t = pt.exp(
-            comodi.slow_modulation.sigmoidal_changepoints(
+            icomo.slow_modulation.sigmoidal_changepoints(
                 ts_out=t_solve_ODE,
                 positions_cp=t_pos_R,
                 magnitudes_cp=Delta_rhos_R,
@@ -103,7 +103,7 @@ def model_cases_seropositivity(
             dR = γ * I
             return dS, dI, dR
 
-        integrator = comodi.ODEIntegrator(
+        integrator = icomo.ODEIntegrator(
             ts_out=t_solve_ODE,
             t_0=min(t_solve_ODE),
             ts_solver=t_solve_ODE,
@@ -124,7 +124,7 @@ def model_cases_seropositivity(
         pm.Deterministic("I", I, dims=("t_solve_ODE",))
         pm.Deterministic("R", R, dims=("t_solve_ODE",))
 
-        new_positive = comodi.interpolate_pytensor(
+        new_positive = icomo.interpolate_pytensor(
             ts_in=t_solve_ODE[:-1] + 0.5 * np.diff(t_solve_ODE),
             ts_out=t_cases_data,
             y=-pt.diff(S) / np.diff(t_solve_ODE),
@@ -144,7 +144,7 @@ def model_cases_seropositivity(
             observed=cases_data if not sim_model else None,
         )
 
-        sero_at_data = comodi.interpolate_pytensor(
+        sero_at_data = icomo.interpolate_pytensor(
             ts_in=t_solve_ODE,
             ts_out=t_seropos_data,
             y=R,
@@ -160,7 +160,7 @@ def model_cases_seropositivity(
             observed=seropos_data if not sim_model else None,
         )
 
-        sero_at_cases = comodi.interpolate_pytensor(
+        sero_at_cases = icomo.interpolate_pytensor(
             ts_in=t_solve_ODE,
             ts_out=t_cases_data,
             y=R,

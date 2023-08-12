@@ -102,3 +102,4 @@ docs/_templates/
 # IDE settings
 .vscode/
 .idea/
+/icomo/_version.py

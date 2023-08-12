@@ -1,7 +1,7 @@
 API reference
 ==============
 
-.. automodule:: comodi
+.. automodule:: icomo
    :imported-members:
    :members:
    :undoc-members:

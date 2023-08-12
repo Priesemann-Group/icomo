@@ -1,1 +1,1 @@
-"""Unit test package for comodi."""
+"""Unit test package for icomo."""

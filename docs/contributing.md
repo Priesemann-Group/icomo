@@ -9,7 +9,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at https://github.com/Priesemann-Group/comodi/issues.
+Report bugs at https://github.com/Priesemann-Group/icomo/issues.
 
 If you are reporting a bug, please include ideally a minimal reproducible example.
 
@@ -33,7 +33,7 @@ in docstrings, or even on the web in blog posts, articles, and such.
 ### Submit Feedback
 
 The best way to send feedback is to file an issue at
-https://github.com/Priesemann-Group/comodi/issues.
+https://github.com/Priesemann-Group/icomo/issues.
 
 If you are proposing a feature:
 
@@ -45,20 +45,20 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here’s how to set up `comodi` for local development.
+Ready to contribute? Here’s how to set up `icomo` for local development.
 
-1.  Fork the `comodi` repo on GitHub.
+1.  Fork the `icomo` repo on GitHub.
 
 2.  Clone your fork locally::
 
-    $ git clone git@github.com:your_name_here/comodi.git
+    $ git clone git@github.com:your_name_here/icomo.git
 
 3.  Install your local copy into a virtualenv. Assuming you have
     virtualenvwrapper installed, this is how you set up your fork for
     local development::
 
-    $ mkvirtualenv comodi
-    $ cd comodi/
+    $ mkvirtualenv icomo
+    $ cd icomo/
     $ python setup.py develop
 
 4.  Create a branch for local development::
@@ -98,7 +98,7 @@ Before you submit a pull request, check that it meets these guidelines:
 
 To run a subset of tests::
 ```
-$ pytest tests.test_comodi
+$ pytest tests.test_icomo
 ```
 
 

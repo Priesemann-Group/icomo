@@ -1,5 +1,5 @@
 # mypy: disable-error-code="attr-defined"
-"""Compartmental Models Inference Toolbox."""
+"""Inference of Compartmental Models Toolbox."""
 from importlib import metadata as importlib_metadata
 
 
@@ -25,7 +25,7 @@ __email__ = "jonas.dehning@ds.mpg.de"
 from importlib.metadata import version, PackageNotFoundError
 
 try:
-    __version__ = version("package-name")
+    __version__ = version("icomo")
 except PackageNotFoundError:
     # package is not installed
     pass

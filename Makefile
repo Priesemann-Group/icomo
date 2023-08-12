@@ -12,11 +12,11 @@
 # 	semantic-release
 
 
-PACKAGE_PATH="comodi"
+PACKAGE_PATH="icomo"
 
 SPHINXOPTS    =
 SPHINXBUILD   = python -msphinx
-SPHINXPROJ    = comodi
+SPHINXPROJ    = icomo
 SOURCEDIR     = docs/
 BUILDDIR      = docs/_build
 

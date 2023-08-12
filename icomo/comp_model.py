@@ -4,7 +4,7 @@ import diffrax
 import graphviz
 from pytensor.tensor.type import TensorType
 
-from comodi.pytensor_op import create_and_register_jax
+from icomo.pytensor_op import create_and_register_jax
 
 import logging
 

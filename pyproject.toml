@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "comodi"
+name = "icomo"
 authors = [
   { name = "Jonas Dehning", email = "jonas.dehning@ds.mpg.de" },
 ]
@@ -56,10 +56,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Priesemann-Group/comodi"
-"Bug Tracker" = "https://github.com/Priesemann-Group/comodi/issues"
-Discussions = "https://github.com/Priesemann-Group/comodi/discussions"
-Changelog = "https://github.com/Priesemann-Group/comodi/releases"
+Homepage = "https://github.com/Priesemann-Group/icomo"
+"Bug Tracker" = "https://github.com/Priesemann-Group/icomo/issues"
+Discussions = "https://github.com/Priesemann-Group/icomo/discussions"
+Changelog = "https://github.com/Priesemann-Group/icomo/releases"
 
 
 [tool.pytest.ini_options]
@@ -85,7 +85,7 @@ skip_glob = ["docs/*", "*.egg-info"]
 [tool.ruff]
 line-length = 88
 force-exclude = true
-src = ["comodi"]
+src = ["icomo"]
 exclude = [
   'docs',
 ]
@@ -100,9 +100,9 @@ convention = "numpy"
 no_strict_optional = false
 
 [tool.setuptools]
-packages = ["comodi"]
+packages = ["icomo"]
 
 [tool.setuptools_scm]
-write_to = "comodi/_version.py"
+write_to = "icomo/_version.py"
 
 

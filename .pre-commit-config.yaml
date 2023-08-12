@@ -28,7 +28,7 @@ repos:
 #      name: mypy
 #      entry: mypy
 #      language: system
-#      files: "comodi"
+#      files: "icomo"
 #      pass_filenames: true
 #      types:
 #        - python
@@ -37,7 +37,7 @@ repos:
       name: pydocstyle
       entry: pydocstyle
       language: system
-      files: "comodi"
+      files: "icomo"
       pass_filenames: true
       types:
         - python
