@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-build = [
+dev = [
 "pytest >= 7.3.2",
 "black >= 23.3.0",
 "isort >= 5.12.0",
