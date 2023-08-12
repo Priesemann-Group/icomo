@@ -1,19 +1,5 @@
 # Contributing
 
-In order to be able to contribute, it is important that you understand
-the project layout.
-This project uses the *flat layout*, which means that the package code is located
-at `./comodi`.
-
-For my information, check the official documentation:
-https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/
-
-In addition, you should know that to build our package we use
-[Setuptools](https://setuptools.pypa.io/en/latest/), it's a package to easily
-define the package structure, manage dependencies and convert our project into a
-distributable package. Also, setuptools automates tasks such as packaging
-and installation, saving time and effort for both our team and end-users.
-
 Contributions are welcome, and they are greatly appreciated! Every little bit
 helps, and credit will always be given.
 
@@ -25,12 +11,7 @@ You can contribute in many ways:
 
 Report bugs at https://github.com/Priesemann-Group/comodi/issues.
 
-If you are reporting a bug, please include:
-
-  - Your operating system name and version.
-  - Any details about your local setup that might be helpful in
-    troubleshooting.
-  - Detailed steps to reproduce the bug.
+If you are reporting a bug, please include ideally a minimal reproducible example.
 
 ### Fix Bugs
 
@@ -45,8 +26,8 @@ it.
 
 ### Write Documentation
 
-Compartmental Models Inference Toolbox could always use more documentation,
-whether as part of the official Compartmental Models Inference Toolbox docs,
+Our toolbox could always use more documentation,
+whether as part of the official docs,
 in docstrings, or even on the web in blog posts, articles, and such.
 
 ### Submit Feedback
@@ -111,6 +92,8 @@ Before you submit a pull request, check that it meets these guidelines:
     the feature to the list in README.rst.
 3.  The pull request should work for Python >= 3.8.
 
+<!---
+
 ## Tips
 
 To run a subset of tests::
@@ -160,3 +143,4 @@ source:
 
 As this project uses the `squash and merge` strategy, ensure to apply
 the commit message format to the PR's title.
+-->

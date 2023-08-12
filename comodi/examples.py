@@ -1,14 +1,13 @@
+"""Example of the inference of compartmental models."""
+
 import sys
 
+import diffrax
 import matplotlib.pyplot as plt
 import numpy as np
-
-import pytensor.tensor as pt
-
 import pymc as pm
 import pymc.sampling.jax
-
-import diffrax
+import pytensor.tensor as pt
 
 import comodi
 
@@ -24,6 +23,7 @@ def model_cases_seropositivity(
     num_cps_reporting=3,
     num_cps_R=8,
 ):
+    """Return example model for cases and seropositivity data."""
     end_sim = max(t_cases_data)
 
     t_solve_ODE = np.arange(-20, end_sim, fact_subs)
@@ -124,7 +124,7 @@ def model_cases_seropositivity(
         pm.Deterministic("I", I, dims=("t_solve_ODE",))
         pm.Deterministic("R", R, dims=("t_solve_ODE",))
 
-        new_positive = comodi.interpolate(
+        new_positive = comodi.interpolate_pytensor(
             ts_in=t_solve_ODE[:-1] + 0.5 * np.diff(t_solve_ODE),
             ts_out=t_cases_data,
             y=-pt.diff(S) / np.diff(t_solve_ODE),
@@ -144,7 +144,7 @@ def model_cases_seropositivity(
             observed=cases_data if not sim_model else None,
         )
 
-        sero_at_data = comodi.interpolate(
+        sero_at_data = comodi.interpolate_pytensor(
             ts_in=t_solve_ODE,
             ts_out=t_seropos_data,
             y=R,
@@ -160,7 +160,7 @@ def model_cases_seropositivity(
             observed=seropos_data if not sim_model else None,
         )
 
-        sero_at_cases = comodi.interpolate(
+        sero_at_cases = comodi.interpolate_pytensor(
             ts_in=t_solve_ODE,
             ts_out=t_cases_data,
             y=R,

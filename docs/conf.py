@@ -54,10 +54,11 @@ autodoc_mock_imports = [
     "pandas",
     "filelock",
     "arviz",
-    "optax"
-    "jax"
-    "jax.numpy"
-    "diffrax"
+    "optax",
+    "jax",
+    "jax.numpy",
+    "diffrax",
+    "pytensor",
 ]
 
 nbsphinx_allow_errors = True
@@ -111,7 +112,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "sphinx_book_theme"
 
 html_show_sourcelink = False
 
@@ -230,7 +231,6 @@ intersphinx_mapping = {
     "jax": ("https://jax.readthedocs.io/en/latest/", None),
     "diffrax": ("https://docs.kidger.site/diffrax/", None),
     "optax": ("https://optax.readthedocs.io/en/latest/", None),
-
 }
 
 imgmath_image_format = "svg"

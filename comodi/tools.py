@@ -1,3 +1,5 @@
+"""Auxiliary functions."""
+
 import pymc as pm
 
 

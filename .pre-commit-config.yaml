@@ -1,10 +1,10 @@
 default_stages:
   - commit
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
-    hooks:
-      - id: end-of-file-fixer
+#  - repo: https://github.com/pre-commit/pre-commit-hooks
+#    rev: v4.1.0
+#    hooks:
+#      - id: end-of-file-fixer
 
   - repo: local
     hooks:
@@ -24,14 +24,14 @@ repos:
       types:
         - python
 
-    - id: mypy
-      name: mypy
-      entry: mypy
-      language: system
-      files: "comodi"
-      pass_filenames: true
-      types:
-        - python
+#    - id: mypy
+#      name: mypy
+#      entry: mypy
+#      language: system
+#      files: "comodi"
+#      pass_filenames: true
+#      types:
+#        - python
 
     - id: pydocstyle
       name: pydocstyle

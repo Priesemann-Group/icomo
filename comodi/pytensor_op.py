@@ -1,13 +1,14 @@
+"""Convert a jax function to a pytensor Op."""
+
 import inspect
 
-import numpy as np
 import jax
-from jax.tree_util import tree_flatten, tree_unflatten
-
+import numpy as np
 import pytensor.tensor as pt
+from jax.tree_util import tree_flatten, tree_unflatten
+from pytensor.gradient import DisconnectedType
 from pytensor.graph import Apply, Op
 from pytensor.link.jax.dispatch import jax_funcify
-from pytensor.gradient import DisconnectedType
 
 
 def create_and_register_jax(
@@ -16,11 +17,12 @@ def create_and_register_jax(
     input_dtype="float64",
     name=None,
 ):
-    """
-    Returns a pytensor from a jax jittable function. It requires to define the output
-    types of the returned values as pytensor types. A unique name should also
-    be passed in case the name of the jax_func is identical to some other node. The
-    design of this function is based on https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/
+    """Return a pytensor from a jax jittable function.
+
+    It requires to define the output types of the returned values as pytensor types. A
+    unique name should also be passed in case the name of the jax_func is identical to
+    some other node. The design of this function is based on
+    https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/
 
     Parameters
     ----------
@@ -39,9 +41,6 @@ def create_and_register_jax(
         and compilable with both JAX and C backend.
 
     """
-
-    # def jax_func_flat(*inputs, **kwinputs):
-
     jitted_sol_op_jax = jax.jit(jax_func)
     len_gz = len(output_types)
 
@@ -91,7 +90,7 @@ def create_and_register_jax(
             return Apply(self, all_inputs_flat, outputs)
 
         def perform(self, node, inputs, outputs):
-            """This function is called by the C backend, thus the numpy conversion"""
+            # This function is called by the C backend, thus the numpy conversion.
             inputs = tree_unflatten(self.input_tree, inputs)
             results = jitted_sol_op_jax(*inputs)
             if len(output_types) > 1:

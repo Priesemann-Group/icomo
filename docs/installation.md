@@ -2,23 +2,35 @@
 
 ## Stable release
 
-To install Compartmental Models Inference Toolbox, run this command in your
+To install comodi, run this command in your
 terminal:
 
 ```bash
 $ pip install comodi
 ```
 
-This is the preferred method to install Compartmental Models Inference Toolbox,
-as it will always install the most recent stable release.
+You might want to create a virtual environment first, e.g. using
+[mamba](https://mamba.readthedocs.io/en/latest/mamba-installation.html):
 
-If you don't have [pip](https://pip.pypa.io) installed, this
-[Python installation guide](http://docs.python-guide.org/en/latest/starting/installation/)
-can guide you through the process.
+```bash
+$ mamba create -n comodi_env comodi
+$ conda activate comodi_env
+```
+
+or directly using venv:
+
+```bash
+$ python -m venv /path/to/new/comodi_env
+$ source /path/to/new/comodi_env/bin/activate
+$ pip install comodi
+```
+
+This is the preferred method to install comodi,
+as it will always install the most recent stable release.
 
 ## From sources
 
-The sources for Compartmental Models Inference Toolbox can be downloaded from
+The sources for comodi can be downloaded from
 the [Github repo](https://github.com/Priesemann-Group/comodi).
 
 You can either clone the public repository:
@@ -34,8 +46,11 @@ Or download the
 $ curl -OJL https://github.com/Priesemann-Group/comodi/tarball/main
 ```
 
-Once you have a copy of the source, you can install it with:
+Enter the directory and install with pip:
 
 ```bash
-$ poetry install
+$ cd comodi
+$ pip install -e .
 ```
+This enables you to edit the code and have the changes directly available in your python
+environment.

@@ -1,15 +1,15 @@
 .DEFAULT_GOAL := help
 
-RELEASE_APP=npx --yes \
-	-p semantic-release \
-	-p "@semantic-release/commit-analyzer" \
-	-p "@semantic-release/release-notes-generator" \
-	-p "@semantic-release/changelog" \
-	-p "@semantic-release/exec" \
-	-p "@semantic-release/github" \
-	-p "@semantic-release/git" \
-	-p "@google/semantic-release-replace-plugin" \
-	semantic-release
+# RELEASE_APP=npx --yes \
+# 	-p semantic-release \
+# 	-p "@semantic-release/commit-analyzer" \
+# 	-p "@semantic-release/release-notes-generator" \
+# 	-p "@semantic-release/changelog" \
+# 	-p "@semantic-release/exec" \
+# 	-p "@semantic-release/github" \
+# 	-p "@semantic-release/git" \
+# 	-p "@google/semantic-release-replace-plugin" \
+# 	semantic-release
 
 
 PACKAGE_PATH="comodi"
@@ -51,7 +51,7 @@ clean: ## remove build artifacts, compiled files, and cache
 	rm -fr .pytest_cache
 
 .PHONY:lint
-lint:
+lint: ## lint the project
 	pre-commit run --all-files
 
 .PHONY: test
@@ -71,10 +71,10 @@ docs-preview: docs-build
 build:
 	python -m build
 
-.PHONY:release-ci
-release-ci:
-	$(RELEASE_APP) --ci
-
-.PHONY:release-dry
-release-dry:
-	$(RELEASE_APP) --dry-run
+# .PHONY:release-ci
+# release-ci:
+# 	$(RELEASE_APP) --ci
+#
+# .PHONY:release-dry
+# release-dry:
+# 	$(RELEASE_APP) --dry-run

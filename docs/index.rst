@@ -9,8 +9,8 @@ Welcome to Compartmental Models Inference Toolbox's documentation!
 
    Introduction <readme>
    installation
+   Getting started <example>
    api/references
-   Example <example>
    contributing
    changelog
 

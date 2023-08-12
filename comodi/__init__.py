@@ -3,39 +3,32 @@
 from importlib import metadata as importlib_metadata
 
 
-def get_version() -> str:
+from . import comp_model, examples, pytensor_op, slow_modulation, tools
+from .comp_model import (
+    CompModel,
+    ODEIntegrator,
+    interpolate_pytensor,
+    interpolation_func,
+    erlang_kernel,
+    delayed_copy,
+    SIR,
+    Erlang_SEIRS,
+)
+
+from .slow_modulation import sigmoidal_changepoints, priors_for_cps
+from .tools import hierarchical_priors
+
+
+def _get_version() -> str:
     """Return the program version."""
     try:
         return importlib_metadata.version(__name__)
     except importlib_metadata.PackageNotFoundError:  # pragma: no cover
-        return "0.1.0"  # semantic-release
+        return "0.1.0"  # Default version
 
 
-version: str = get_version()
+version: str = _get_version()
 
 __author__ = "Jonas Dehning"
 __email__ = "jonas.dehning@ds.mpg.de"
 __version__: str = version
-
-
-from . import pytensor_op
-from . import comp_model
-from . import slow_modulation
-from . import examples
-from . import tools
-
-
-from .comp_model import (
-    ODEIntegrator,
-    interpolate,
-    interpolation_func,
-    SIR,
-    Erlang_SEIR,
-    Erlang_SEIRS,
-    erlang_kernel,
-    delayed_copy,
-    CompModel,
-)
-
-from .tools import hierarchical_priors
-from .slow_modulation import priors_for_cps, sigmoidal_changepoints

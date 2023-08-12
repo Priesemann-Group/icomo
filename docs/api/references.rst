@@ -1,4 +1,4 @@
-API references
+API reference
 ==============
 
 .. automodule:: comodi
@@ -6,4 +6,3 @@ API references
    :members:
    :undoc-members:
    :show-inheritance:
-

@@ -1,6 +1,7 @@
-import numpy as np
-import jax.numpy as jnp
+"""Helper functions to model a slow modulation of a time series."""
 
+import jax.numpy as jnp
+import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 from pytensor.link.jax.dispatch.basic import jax_funcify
@@ -12,27 +13,32 @@ from .tools import hierarchical_priors
 def sigmoidal_changepoints(
     ts_out, positions_cp, magnitudes_cp, durations_cp, reorder_cps=False
 ):
-    """
-    Modulation of a time series by sigmoidal changepoints. The changepoints are defined
-    by their position, magnitude and duration. The resulting equation is:
-    $$ f(t) = \sum_{i=1}^{num_cps} \frac{magnitudes[i]}{1 + exp(-4 * slope[i] * (t - positions[i]))} $$
-    where $slope[i] = magnitudes[i] / durations[i]$
+    r"""Modulation of a time series by sigmoidal changepoints.
+
+    The changepoints are defined by their position, magnitude and duration. The resulting equation is:
+
+    .. math::
+     f(t) = \sum_{i=1}^{\mathrm{num_cps}} \frac{\mathrm{magnitudes\_cp}[i]}{1 + exp(-4 \cdot \mathrm{slope}[i] \cdot (t - \mathrm{positions_cp}[i]))}
+    ..
+
+    where slope[i] = magnitudes_cp[i] / durations_cp[i].
 
     Parameters
     ----------
-    t_out: 1d numpy array
-        timepoints where modulation is evaluated, shape: (time, )
+    t_out: 1d-array
+        timepoints where modulation is evaluated, shape: `(time, )`
     t_cp: nd-array
-        timepoints of the changepoints, shape: (num_cps, further dims...)
+        timepoints of the changepoints, shape: `(num_cps, further dims...)`
     magnitudes: nd-array
-        magnitude of the changepoints, shape: (num_cps, further dims...)
+        magnitude of the changepoints, shape: `(num_cps, further dims...)`
     durations: nd-array
-        magnitude of the changepoints, shape: (num_cps, further dims...)
+        magnitude of the changepoints, shape: `(num_cps, further dims...)`
     reorder_cps: bool, default=False
         reorder changepoints such that their timepoints are linearly increasing
     Returns
     -------
-        nd-array, shape: (time, further dims...)
+    modulation_t: (n+1)d-array
+        shape: `(time, further dims...)`
 
     """
     if reorder_cps:
@@ -63,8 +69,9 @@ def priors_for_cps(
     sigma_magnitude_fix=None,
     model=None,
 ):
-    """
-    Create priors for changepoints. Their positions are uniformly distributed between
+    """Create priors for changepoints.
+
+    Their positions are uniformly distributed between
     the first and last timepoint. The magnitudes are sampled from a hierarchical prior
     with a beta distribution. The durations are sampled from a normal distribution with
     mean equal to the mean distance between changepoints and standard deviation equal to
@@ -73,29 +80,29 @@ def priors_for_cps(
     Parameters
     ----------
     cp_dim : str
-        dimension of the pm.Model for the changepoints. Define it by passing
-        coords={cp_dim: np.arange(num_cps)} to pm.Model at creation. The length of this
+        dimension of the :class:`pymc.Model` for the changepoints. Define it by passing
+        `coords={cp_dim: np.arange(num_cps)}` to :class:`pymc.Model` at creation. The length of this
         dimension determines the number of changepoints.
     time_dim : str
-        dimension of the pm.Model for the time.
+        dimension of the :class:`pymc.Model` for the time.
     name_positions : str
-        name under which the positions of the changepoints are stored in pm.Model
+        name under which the positions of the changepoints are stored in :class:`pymc.Model`
     name_magnitudes : str
-        name under which the magnitudes of the changepoints are stored in pm.Model
+        name under which the magnitudes of the changepoints are stored in :class:`pymc.Model`
     name_durations : str
-        name under which the durations of the changepoints are stored in pm.Model
+        name under which the durations of the changepoints are stored in :class:`pymc.Model`
     beta_magnitude : float, default=1
         beta parameter of the hierarchical prior for the magnitudes
     sigma_magnitude_fix : float, default=None
-        if not None, the standard deviation from which the magnitudes are sampled is fixed
-    model : pm.Model, default=None
+        if not `None`, the standard deviation from which the magnitudes are sampled is fixed
+    model : :class:`pymc.Model`, default=None
         pm.Model in which the priors are created. If None, the pm.Model is taken from the
         the context.
 
     Returns
     -------
-    positions, magnitudes, durations : pm.Variable
-        pm.Variables for the positions, magnitudes and durations of the changepoints
+    positions, magnitudes, durations : :class:`pytensor.Variable`
+        Variables of dim `cp_dim` that define the positions, magnitudes and durations of the changepoints
 
     """
     model = pm.modelcontext(model)
@@ -139,7 +146,7 @@ def priors_for_cps(
 
 
 @jax_funcify.register(ArgSortOp)
-def jax_funcify_Argsort(op, node, **kwargs):
+def _jax_funcify_Argsort(op, node, **kwargs):
     def argsort(x, axis=None):
         return jnp.argsort(x, axis=axis)
 
