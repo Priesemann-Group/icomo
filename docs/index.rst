@@ -12,8 +12,6 @@ Welcome to Inference of Compartmental Models Toolbox's documentation!
    Getting started <example>
    api/references
    contributing
-   changelog
-
 
 Indices and tables
 ==================

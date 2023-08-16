@@ -83,6 +83,7 @@ author = "Jonas Dehning"
 #
 
 from importlib.metadata import version
+
 release = version('icomo')
 # for example take major/minor
 version = '.'.join(release.split('.')[:2])

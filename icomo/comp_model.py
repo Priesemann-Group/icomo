@@ -1,12 +1,12 @@
 """Tools to create compartmental models and compile them into functions that can be used."""
 
+import logging
+
 import diffrax
 import graphviz
 from pytensor.tensor.type import TensorType
 
 from icomo.pytensor_op import create_and_register_jax
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -384,11 +384,14 @@ class ODEIntegrator:
             self.t_0 = float(self.ts_solver[0])
         else:
             self.t_0 = t_0
+        if self.t_0 > self.ts_out[0]:
+            raise ValueError("t_0 should be smaller than the first element of ts_out")
         if t_1 is None:
             self.t_1 = float(self.ts_solver[-1])
         else:
             self.t_1 = t_1
-
+        if self.t_1 < self.ts_out[-1]:
+            raise ValueError("t_1 should be larger than the last element of ts_out")
         self.ts_arg = ts_arg
         self.interp = interp
         self.solver = solver
