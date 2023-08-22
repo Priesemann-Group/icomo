@@ -27,6 +27,11 @@ $ pip install icomo
 
 This is the preferred method to install icomo,
 as it will always install the most recent stable release.
+You might also want to install [jupyterlab](https://jupyter.org) to run the examples:
+
+```bash
+$ pip install jupyterlab
+```
 
 ## From sources
 
