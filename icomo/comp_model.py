@@ -430,21 +430,25 @@ class ODEIntegrator:
             vice versa, without being in a tuple.
 
         """
-
+        def arg_t_extractor(arg_t):
+            if not callable(arg_t):
+                if self.ts_arg is None:
+                    raise RuntimeError("Specify ts_arg to use a non-callable arg_t")
+                arg_t_func = interpolation_func(
+                    ts=self.ts_arg, x=arg_t, method=self.interp
+                ).evaluate
+                return arg_t_func
+            logger.warning(
+                "arg_t is callable, but ts_arg is not None. ts_arg"
+                " won't be used."
+            )
+            return arg_t
         def integrator(y0, arg_t=None, constant_args=None):
             if arg_t is not None:
-                if not callable(arg_t):
-                    if self.ts_arg is None:
-                        raise RuntimeError("Specify ts_arg to use a non-callable arg_t")
-                    arg_t_func = interpolation_func(
-                        ts=self.ts_arg, x=arg_t, method=self.interp
-                    ).evaluate
+                if isinstance(arg_t, tuple):
+                    arg_t_funcs = tuple(map(arg_t_extractor, arg_t))
                 else:
-                    logger.warning(
-                        "arg_t is callable, but ts_arg is not None. ts_arg"
-                        " won't be used."
-                    )
-                    arg_t_func = arg_t
+                    arg_t_funcs = arg_t_extractor(arg_t)
 
             if arg_t is None and self.ts_arg is not None:
                 logger.warning(
@@ -455,10 +459,10 @@ class ODEIntegrator:
             if arg_t is None:
                 args = constant_args
             elif constant_args is None:
-                args = arg_t_func
+                args = arg_t_funcs
             else:
                 args = (
-                    arg_t_func,
+                    arg_t_funcs,
                     constant_args,
                 )
             saveat = diffrax.SaveAt(ts=self.ts_out)
