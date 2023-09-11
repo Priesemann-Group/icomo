@@ -316,17 +316,10 @@ def delayed_copy(initial_var, delayed_vars, tau_delay):
         The derivatives of the delayed compartments
 
     """
-    shape = len(delayed_vars)
-    inflow = initial_var / tau_delay * shape
-    if shape == 1:
-        d_delayed_vars = []
-        d_delayed_vars_last = inflow
-    elif shape > 1:
-        d_delayed_vars, outflow = erlang_kernel(
-            inflow, delayed_vars[:-1], 1 / tau_delay * shape
-        )
-        d_delayed_vars_last = outflow
-    return d_delayed_vars + [d_delayed_vars_last]
+    length = len(delayed_vars)
+    inflow = initial_var / tau_delay * length
+    d_delayed_vars, outflow = erlang_kernel(inflow, delayed_vars[:], 1 / tau_delay)
+    return d_delayed_vars
 
 
 class ODEIntegrator:
