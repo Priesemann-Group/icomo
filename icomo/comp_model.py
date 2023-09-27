@@ -359,8 +359,8 @@ class ODEIntegrator:
             The timesteps at which the output is returned.
         ts_solver : array-like or None
             The timesteps at which the solver will be called. If None, it is set to ts_out.
-        ts_arg : array-like or None
-            The timesteps at which the time-dependent argument of the system of differential
+        ts_arg : array-like, None or a tuple of the former
+            The timesteps at which the time-dependent argument(s) of the system of differential
             equations are given. If None, it is set to ts_solver.
         interp : str
             The interpolation method used to interpolate_pytensor the time-dependent argument of the
@@ -422,10 +422,14 @@ class ODEIntegrator:
         integrator : function(y0, arg_t=None, constant_args=None)
             A function that solves the system of differential equations and returns the
             output at the specified timesteps. The function takes as input `y0` the initial
-            values of the variables of the system of differential equations, the
-            time-dependent argument of the system of differential equations `arg_t`, and
-            the constant arguments `constant_args` of the system of differential equations. `t`, `y0` and
-            `(arg_t, constant_args)` are passed to the ODE function as its three arguments.
+            values of the variables of the system of differential equations, the (set) of
+            time-dependent arguments of the system of differential equations `arg_t`, and
+            the constant arguments `constant_args` of the system of differential equations.
+            Currently `arg_t` is supported to be either `None`, a `callable`, a vector of
+            values at same timepoints as `ts_arg` or a `tuple` of the former two. This will
+            raise an 
+            `t`, `y0` and `(arg_t_func{s}, constant_args)` are passed to the ODE function as
+            its three arguments.
             If `arg_t` is `None`, only `constant_args` are passed to the ODE function and
             vice versa, without being in a tuple.
 
