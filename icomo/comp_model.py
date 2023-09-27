@@ -430,12 +430,14 @@ class ODEIntegrator:
             vice versa, without being in a tuple.
 
         """
-        def arg_t_extractor(arg_t):
+        def arg_t_extractor(arg_t, ts_arg):
+            if arg_t is None:
+                raise RuntimeError("Specifying arg_t of None is not supported within tuple of arg_t")
             if not callable(arg_t):
                 if self.ts_arg is None:
                     raise RuntimeError("Specify ts_arg to use a non-callable arg_t")
                 arg_t_func = interpolation_func(
-                    ts=self.ts_arg, x=arg_t, method=self.interp
+                    ts=ts_arg, x=arg_t, method=self.interp
                 ).evaluate
                 return arg_t_func
             logger.warning(
@@ -445,10 +447,14 @@ class ODEIntegrator:
             return arg_t
         def integrator(y0, arg_t=None, constant_args=None):
             if arg_t is not None:
-                if isinstance(arg_t, tuple):
-                    arg_t_funcs = tuple(map(arg_t_extractor, arg_t))
+                if isinstance(arg_t, tuple) and isinstance(self.ts_arg, tuple):
+                    if len(arg_t) != len(self.ts_arg):
+                        raise RuntimeError("Mismatch of elements in `arg_t` and `ts_arg`")
+                    arg_t_funcs = tuple(map(arg_t_extractor, arg_t, self.ts_arg))
+                elif isinstance(arg_t, tuple):
+                    arg_t_funcs = tuple(map(lambda f : arg_t_extractor(f, self.ts_arg), arg_t))
                 else:
-                    arg_t_funcs = arg_t_extractor(arg_t)
+                    arg_t_funcs = arg_t_extractor(arg_t, self.ts_arg)
 
             if arg_t is None and self.ts_arg is not None:
                 logger.warning(
