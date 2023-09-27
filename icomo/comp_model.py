@@ -438,10 +438,15 @@ class ODEIntegrator:
             if arg_t is None:
                 raise RuntimeError("Specifying arg_t of None is not supported within tuple of arg_t")
             if not callable(arg_t):
-                if self.ts_arg is None:
-                    raise RuntimeError("Specify ts_arg to use a non-callable arg_t")
+                ts = ts_arg
+                if ts_arg is None:
+                    ts = self.ts_solver
+                    logger.warning(
+                        "non-callable arg_t, but ts_arg is None."
+                        " defaulting to ts_solver."
+                    )
                 arg_t_func = interpolation_func(
-                    ts=ts_arg, x=arg_t, method=self.interp
+                    ts=ts, x=arg_t, method=self.interp
                 ).evaluate
                 return arg_t_func
             logger.warning(
