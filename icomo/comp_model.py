@@ -352,8 +352,8 @@ class ODEIntegrator:
             The timesteps at which the output is returned.
         ts_solver : array-like or None
             The timesteps at which the solver will be called. If None, it is set to ts_out.
-        ts_arg : array-like or None
-            The timesteps at which the time-dependent argument of the system of differential
+        ts_arg : array-like, None or a tuple of the former
+            The timesteps at which the time-dependent argument(s) of the system of differential
             equations are given. If None, it is set to ts_solver.
         interp : str
             The interpolation method used to interpolate_pytensor the time-dependent argument of the
@@ -415,29 +415,48 @@ class ODEIntegrator:
         integrator : function(y0, arg_t=None, constant_args=None)
             A function that solves the system of differential equations and returns the
             output at the specified timesteps. The function takes as input `y0` the initial
-            values of the variables of the system of differential equations, the
-            time-dependent argument of the system of differential equations `arg_t`, and
-            the constant arguments `constant_args` of the system of differential equations. `t`, `y0` and
-            `(arg_t, constant_args)` are passed to the ODE function as its three arguments.
+            values of the variables of the system of differential equations, the (set) of
+            time-dependent arguments of the system of differential equations `arg_t`, and
+            the constant arguments `constant_args` of the system of differential equations.
+            Currently `arg_t` is supported to be either `None`, a `callable`, a vector of
+            values at same timepoints as `ts_arg` or a `tuple` of the former two. This will
+            raise an 
+            `t`, `y0` and `(arg_t_func{s}, constant_args)` are passed to the ODE function as
+            its three arguments.
             If `arg_t` is `None`, only `constant_args` are passed to the ODE function and
             vice versa, without being in a tuple.
 
         """
-
+        def arg_t_extractor(arg_t, ts_arg):
+            if arg_t is None:
+                raise RuntimeError("Specifying arg_t of None is not supported within tuple of arg_t")
+            if not callable(arg_t):
+                ts = ts_arg
+                if ts_arg is None:
+                    ts = self.ts_solver
+                    logger.warning(
+                        "non-callable arg_t, but ts_arg is None."
+                        " defaulting to ts_solver."
+                    )
+                arg_t_func = interpolation_func(
+                    ts=ts, x=arg_t, method=self.interp
+                ).evaluate
+                return arg_t_func
+            logger.warning(
+                "arg_t is callable, but ts_arg is not None. ts_arg"
+                " won't be used."
+            )
+            return arg_t
         def integrator(y0, arg_t=None, constant_args=None):
             if arg_t is not None:
-                if not callable(arg_t):
-                    if self.ts_arg is None:
-                        raise RuntimeError("Specify ts_arg to use a non-callable arg_t")
-                    arg_t_func = interpolation_func(
-                        ts=self.ts_arg, x=arg_t, method=self.interp
-                    ).evaluate
+                if isinstance(arg_t, tuple) and isinstance(self.ts_arg, tuple):
+                    if len(arg_t) != len(self.ts_arg):
+                        raise RuntimeError("Mismatch of elements in `arg_t` and `ts_arg`")
+                    arg_t_funcs = tuple(map(arg_t_extractor, arg_t, self.ts_arg))
+                elif isinstance(arg_t, tuple):
+                    arg_t_funcs = tuple(map(lambda f : arg_t_extractor(f, self.ts_arg), arg_t))
                 else:
-                    logger.warning(
-                        "arg_t is callable, but ts_arg is not None. ts_arg"
-                        " won't be used."
-                    )
-                    arg_t_func = arg_t
+                    arg_t_funcs = arg_t_extractor(arg_t, self.ts_arg)
 
             if arg_t is None and self.ts_arg is not None:
                 logger.warning(
@@ -448,10 +467,10 @@ class ODEIntegrator:
             if arg_t is None:
                 args = constant_args
             elif constant_args is None:
-                args = arg_t_func
+                args = arg_t_funcs
             else:
                 args = (
-                    arg_t_func,
+                    arg_t_funcs,
                     constant_args,
                 )
             saveat = diffrax.SaveAt(ts=self.ts_out)
