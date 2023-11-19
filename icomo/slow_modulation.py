@@ -67,6 +67,7 @@ def priors_for_cps(
     name_durations,
     beta_magnitude=1,
     sigma_magnitude_fix=None,
+    dist_magnitudes=pm.Normal,
     model=None,
 ):
     """Create priors for changepoints.
@@ -80,21 +81,25 @@ def priors_for_cps(
     Parameters
     ----------
     cp_dim : str
-        dimension of the :class:`pymc.Model` for the changepoints. Define it by passing
+        Dimension of the :class:`pymc.Model` for the changepoints. Define it by passing
         `coords={cp_dim: np.arange(num_cps)}` to :class:`pymc.Model` at creation. The length of this
         dimension determines the number of changepoints.
     time_dim : str
-        dimension of the :class:`pymc.Model` for the time.
+        Dimension of the :class:`pymc.Model` for the time.
     name_positions : str
-        name under which the positions of the changepoints are stored in :class:`pymc.Model`
+        Name under which the positions of the changepoints are stored in :class:`pymc.Model`
     name_magnitudes : str
-        name under which the magnitudes of the changepoints are stored in :class:`pymc.Model`
+        Name under which the magnitudes of the changepoints are stored in :class:`pymc.Model`
     name_durations : str
-        name under which the durations of the changepoints are stored in :class:`pymc.Model`
+        Name under which the durations of the changepoints are stored in :class:`pymc.Model`
     beta_magnitude : float, default=1
-        beta parameter of the hierarchical prior for the magnitudes
+        Beta parameter of the hierarchical prior for the magnitudes
     sigma_magnitude_fix : float, default=None
-        if not `None`, the standard deviation from which the magnitudes are sampled is fixed
+        If not `None`, the standard deviation from which the magnitudes are sampled is fixed
+    dist_magnitudes : :class:`pymc.Distribution`, default=pm.Normal
+        Distribution from which the magnitudes are sampled. Can for example be
+        functools.partial(pm.StudentT, nu=4) to sample from a StudentT distribution for
+        a more robust model.
     model : :class:`pymc.Model`, default=None
         pm.Model in which the priors are created. If None, the pm.Model is taken from the
         the context.
@@ -123,6 +128,7 @@ def priors_for_cps(
         dims=(cp_dim,),
         beta=beta_magnitude,
         fix_hyper_sigma=sigma_magnitude_fix,
+        dist_values=dist_magnitudes,
     )
 
     ### Durations:

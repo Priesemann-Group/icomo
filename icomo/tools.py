@@ -3,7 +3,9 @@
 import pymc as pm
 
 
-def hierarchical_priors(name, dims, beta=1, fix_hyper_sigma=None):
+def hierarchical_priors(
+    name, dims, beta=1, fix_hyper_sigma=None, dist_values=pm.Normal
+):
     """Create hierarchical priors for a variable.
 
     Create an n-dimensional variable with hierarchical prior with name `name` and
@@ -13,14 +15,18 @@ def hierarchical_priors(name, dims, beta=1, fix_hyper_sigma=None):
     Parameters
     ----------
     name : str
-        name under which the variable is stored in pm.Model
+        Name under which the variable is stored in pm.Model
     dims : tuple of str
-        dimensions over which the variable is defined. Define a dimension by passing
+        Dimensions over which the variable is defined. Define a dimension by passing
         coords={dim_name: np.arange(size)} to pm.Model at creation.
     beta : float, default=1
-        beta parameter of the half-cauchy distribution
+        Beta parameter of the half-cauchy distribution
     fix_hyper_sigma : float, default=None
-        if not None, the standard deviation from which the variable is sampled is fixed
+        If not None, the standard deviation from which the variable is sampled is fixed
+    dist_values : :class:`pymc.Distribution`, default=pm.Normal
+        Distribution from which the values are sampled. Can for example be
+        functools.partial(pm.StudentT, nu=4) to sample from a StudentT distribution for
+        a more robust model.
 
     Returns
     -------
@@ -33,6 +39,6 @@ def hierarchical_priors(name, dims, beta=1, fix_hyper_sigma=None):
         if fix_hyper_sigma is None
         else fix_hyper_sigma
     )
-    values = (pm.Normal(f"{name}_raw", 0, 1, dims=dims)) * sigma
+    values = (dist_values(f"{name}_raw", mu=0, sigma=1, dims=dims)) * sigma
     values = pm.Deterministic(f"{name}", values, dims=dims)
     return values
