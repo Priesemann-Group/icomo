@@ -9,6 +9,7 @@ from jax.tree_util import tree_flatten, tree_unflatten
 from pytensor.gradient import DisconnectedType
 from pytensor.graph import Apply, Op
 from pytensor.link.jax.dispatch import jax_funcify
+from functools import partial
 
 
 def create_and_register_jax(
@@ -16,6 +17,7 @@ def create_and_register_jax(
     output_types=(),
     input_dtype="float64",
     name=None,
+    static_argnums=(),
 ):
     """Return a pytensor from a jax jittable function.
 
@@ -41,7 +43,7 @@ def create_and_register_jax(
         and compilable with both JAX and C backend.
 
     """
-    jitted_sol_op_jax = jax.jit(jax_func)
+    jitted_sol_op_jax = partial(jax.jit, static_argnums=static_argnums)(jax_func)
     len_gz = len(output_types)
 
     def vjp_sol_op_jax(*args):
@@ -55,7 +57,9 @@ def create_and_register_jax(
         else:
             return vjp_fn(gz)
 
-    jitted_vjp_sol_op_jax = jax.jit(vjp_sol_op_jax)
+    jitted_vjp_sol_op_jax = partial(jax.jit, static_argnums=static_argnums)(
+        vjp_sol_op_jax
+    )
 
     class SolOp(Op):
         def __init__(self):

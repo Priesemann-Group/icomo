@@ -5,6 +5,9 @@ import logging
 import diffrax
 import graphviz
 from pytensor.tensor.type import TensorType
+import jax
+
+# import jax.numpy as jnp
 
 from icomo.pytensor_op import create_and_register_jax
 
@@ -454,10 +457,10 @@ class ODEIntegrator:
                     arg_t_func,
                     constant_args,
                 )
-            saveat = diffrax.SaveAt(ts=self.ts_out)
+            saveat = diffrax.SaveAt(ts=self.ts_out)  # jnp.array?
 
             stepsize_controller = (
-                diffrax.StepTo(ts=self.ts_solver)
+                diffrax.StepTo(ts=self.ts_solver)  # jnp.array?
                 if not "stepsize_controller" in self.kwargs_solver
                 else self.kwargs_solver["stepsize_controller"]
             )
@@ -570,6 +573,7 @@ def interpolation_func(ts, x, method="cubic"):
         variable at time `t`. t can be a float or an array-like.
 
     """
+    # ts = jnp.array(ts)
     if method == "cubic":
         coeffs = diffrax.backward_hermite_coefficients(ts, x)
         interp = diffrax.CubicInterpolation(ts, coeffs)
@@ -582,7 +586,9 @@ def interpolation_func(ts, x, method="cubic"):
     return interp
 
 
-def interpolate_pytensor(ts_in, ts_out, y, method="cubic", ret_gradients=False):
+def interpolate_pytensor(
+    ts_in, ts_out, y, method="cubic", ret_gradients=False, name=None
+):
     """
     Interpolate the time-dependent variable `y` at the timesteps `ts_out`.
 
@@ -607,18 +613,19 @@ def interpolate_pytensor(ts_in, ts_out, y, method="cubic", ret_gradients=False):
 
     """
 
-    def interpolator(ts_out, y):
+    def interpolator(ts_out, y, ts_in=ts_in):
         interp = interpolation_func(ts_in, y, method)
         if ret_gradients:
-            return interp.derivative(ts_out)
+            return jax.vmap(interp.derivative, 0, 0)(ts_out)
         else:
-            return interp.evaluate(ts_out)
+            return jax.vmap(interp.evaluate, 0, 0)(ts_out)
 
     interpolator_op = create_and_register_jax(
         interpolator,
         output_types=[
             TensorType(dtype="float64", shape=(len(ts_out),)),
         ],
+        name=name,
     )
 
     return interpolator_op(ts_out, y)
