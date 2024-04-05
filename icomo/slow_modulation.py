@@ -70,6 +70,7 @@ def priors_for_cps(
     dist_magnitudes=pm.Normal,
     absolute_magnitude_parametrization=False,
     empirical_bayes_hyper_sigma=False,
+    centered_parametrization=False,
     model=None,
 ):
     """Create priors for changepoints.
@@ -108,6 +109,8 @@ def priors_for_cps(
     empirical_bayes_hyper_sigma : bool, default=False
         Whether to set the standard deviation of the hierarchical magnitudes to the maximum
         likelihood estimate instead of sampling. Corresponds to an empirical Bayes approach.
+    centered_parametrization : bool, default=False
+        Whether to use a centered parametrization for the hierarchical priors of the magnitudes.
     model : :class:`pymc.Model`, default=None
         pm.Model in which the priors are created. If None, the pm.Model is taken from the
         the context.
@@ -137,6 +140,7 @@ def priors_for_cps(
         beta=beta_magnitude,
         fix_hyper_sigma=sigma_magnitude_fix,
         dist_values=dist_magnitudes,
+        centered_parametrization=centered_parametrization,
         empirical_sigma=empirical_bayes_hyper_sigma,
     )
     if not absolute_magnitude_parametrization:
