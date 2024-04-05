@@ -68,6 +68,8 @@ def priors_for_cps(
     beta_magnitude=1,
     sigma_magnitude_fix=None,
     dist_magnitudes=pm.Normal,
+    absolute_magnitude_parametrization=False,
+    empirical_bayes_hyper_sigma=False,
     model=None,
 ):
     """Create priors for changepoints.
@@ -100,6 +102,12 @@ def priors_for_cps(
         Distribution from which the magnitudes are sampled. Can for example be
         functools.partial(pm.StudentT, nu=4) to sample from a StudentT distribution for
         a more robust model.
+    absolute_magnitude_parametrization : bool, default=False
+        Whether to use an parametrization that is absolute or relative to previous
+        values for the magnitudes.
+    empirical_bayes_hyper_sigma : bool, default=False
+        Whether to set the standard deviation of the hierarchical magnitudes to the maximum
+        likelihood estimate instead of sampling. Corresponds to an empirical Bayes approach.
     model : :class:`pymc.Model`, default=None
         pm.Model in which the priors are created. If None, the pm.Model is taken from the
         the context.
@@ -123,13 +131,18 @@ def priors_for_cps(
     pm.Deterministic(f"{name_positions}", positions)
 
     ### Magnitudes:
-    magnitudes = hierarchical_priors(
+    magnitudes_tmp = hierarchical_priors(
         name_magnitudes,
         dims=(cp_dim,),
         beta=beta_magnitude,
         fix_hyper_sigma=sigma_magnitude_fix,
         dist_values=dist_magnitudes,
+        empirical_sigma=empirical_bayes_hyper_sigma,
     )
+    if not absolute_magnitude_parametrization:
+        magnitudes = magnitudes_tmp
+    else:
+        magnitudes = pt.diff(pt.concatenate([[0.0], magnitudes_tmp]))
 
     ### Durations:
     mean_duration_len = interval_cps / 3

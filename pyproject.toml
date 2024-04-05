@@ -21,21 +21,11 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
-dynamic = ["version"]
+dynamic = ["version", "dependencies"]
 requires-python = '>=3.8.1'
-dependencies = [
-    "numpy",
-    "matplotlib",
-    "pymc >= 5.0.0",
-    "pytensor",
-    "arviz",
-    "numpyro",
-    "ipywidgets",
-    "graphviz",
-    "diffrax",
-    "optax",
-    "jaxopt",
-]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [project.optional-dependencies]
 dev = [

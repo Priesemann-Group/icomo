@@ -3,7 +3,7 @@
 """Inference of Compartmental Models Toolbox."""
 from importlib import metadata as importlib_metadata
 
-from . import comp_model, examples, pytensor_op, slow_modulation, tools
+from . import comp_model, slow_modulation, tools
 from .comp_model import (
     CompModel,
     ODEIntegrator,
