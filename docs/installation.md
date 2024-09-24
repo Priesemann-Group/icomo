@@ -38,17 +38,10 @@ $ pip install jupyterlab
 The sources for icomo can be downloaded from
 the [Github repo](https://github.com/Priesemann-Group/icomo).
 
-You can either clone the public repository:
+You can clone the public repository:
 
 ```bash
 $ git clone https://github.com/Priesemann-Group/icomo
-```
-
-Or download the
-[tarball](https://github.com/Priesemann-Group/icomo/tarball/main):
-
-```bash
-$ curl -OJL https://github.com/Priesemann-Group/icomo/tarball/main
 ```
 
 Enter the directory and install with pip:
