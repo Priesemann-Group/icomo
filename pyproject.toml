@@ -10,7 +10,6 @@ authors = [
 ]
 description = "This toolbox aims to simplify the construction of compartmental models and the inference of their parameters"
 readme = "README.md"
-license = "MIT"
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
