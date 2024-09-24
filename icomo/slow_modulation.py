@@ -15,10 +15,12 @@ def sigmoidal_changepoints(
 ):
     r"""Modulation of a time series by sigmoidal changepoints.
 
-    The changepoints are defined by their position, magnitude and duration. The resulting equation is:
+    The changepoints are defined by their position, magnitude and duration. The
+    resulting equation is:
 
     .. math::
-     f(t) = \sum_{i=1}^{\mathrm{num_cps}} \frac{\mathrm{magnitudes\_cp}[i]}{1 + exp(-4 \cdot \mathrm{slope}[i] \cdot (t - \mathrm{positions_cp}[i]))}
+     f(t) = \sum_{i=1}^{\mathrm{num_cps}} \frac{\mathrm{magnitudes\_cp}[i]}{1 +
+     exp(-4 \cdot \mathrm{slope}[i] \cdot (t - \mathrm{positions_cp}[i]))}
     ..
 
     where slope[i] = magnitudes_cp[i] / durations_cp[i].
@@ -35,6 +37,7 @@ def sigmoidal_changepoints(
         magnitude of the changepoints, shape: `(num_cps, further dims...)`
     reorder_cps: bool, default=False
         reorder changepoints such that their timepoints are linearly increasing
+
     Returns
     -------
     modulation_t: (n+1)d-array
@@ -52,7 +55,8 @@ def sigmoidal_changepoints(
     slope_cp = 1 / durations_cp
     modulation_t = (
         pt.sigmoid((ts_out - positions_cp) * slope_cp * 4) * magnitudes_cp
-    )  # 4*slope_cp because the derivative of the sigmoid at zero is 1/4, we want to set it to slope_cp
+    )  # 4*slope_cp because the derivative of the sigmoid at zero is 1/4, we want to set
+    # it to slope_cp
 
     modulation_t = pt.sum(modulation_t, axis=1)
 
@@ -85,20 +89,24 @@ def priors_for_cps(
     ----------
     cp_dim : str
         Dimension of the :class:`pymc.Model` for the changepoints. Define it by passing
-        `coords={cp_dim: np.arange(num_cps)}` to :class:`pymc.Model` at creation. The length of this
-        dimension determines the number of changepoints.
+        `coords={cp_dim: np.arange(num_cps)}` to :class:`pymc.Model` at creation. The
+        length of this dimension determines the number of changepoints.
     time_dim : str
         Dimension of the :class:`pymc.Model` for the time.
     name_positions : str
-        Name under which the positions of the changepoints are stored in :class:`pymc.Model`
+        Name under which the positions of the changepoints are stored in
+        :class:`pymc.Model`
     name_magnitudes : str
-        Name under which the magnitudes of the changepoints are stored in :class:`pymc.Model`
+        Name under which the magnitudes of the changepoints are stored in
+        :class:`pymc.Model`
     name_durations : str
-        Name under which the durations of the changepoints are stored in :class:`pymc.Model`
+        Name under which the durations of the changepoints are stored in
+        :class:`pymc.Model`
     beta_magnitude : float, default=1
         Beta parameter of the hierarchical prior for the magnitudes
     sigma_magnitude_fix : float, default=None
-        If not `None`, the standard deviation from which the magnitudes are sampled is fixed
+        If not `None`, the standard deviation from which the magnitudes are sampled is
+        fixed
     dist_magnitudes : :class:`pymc.Distribution`, default=pm.Normal
         Distribution from which the magnitudes are sampled. Can for example be
         functools.partial(pm.StudentT, nu=4) to sample from a StudentT distribution for
@@ -107,18 +115,21 @@ def priors_for_cps(
         Whether to use an parametrization that is absolute or relative to previous
         values for the magnitudes.
     empirical_bayes_hyper_sigma : bool, default=False
-        Whether to set the standard deviation of the hierarchical magnitudes to the maximum
-        likelihood estimate instead of sampling. Corresponds to an empirical Bayes approach.
+        Whether to set the standard deviation of the hierarchical magnitudes to the
+        maximum likelihood estimate instead of sampling. Corresponds to an empirical
+        Bayes approach.
     centered_parametrization : bool, default=False
-        Whether to use a centered parametrization for the hierarchical priors of the magnitudes.
+        Whether to use a centered parametrization for the hierarchical priors of the
+        magnitudes.
     model : :class:`pymc.Model`, default=None
-        pm.Model in which the priors are created. If None, the pm.Model is taken from the
+        pm.Model in which the priors are created. If None, the pm.Model is taken from
         the context.
 
     Returns
     -------
     positions, magnitudes, durations : :class:`pytensor.Variable`
-        Variables of dim `cp_dim` that define the positions, magnitudes and durations of the changepoints
+        Variables of dim `cp_dim` that define the positions, magnitudes and durations of
+        the changepoints
 
     """
     model = pm.modelcontext(model)

@@ -11,7 +11,7 @@ compartmental models.
 
 * Documentation: https://icomo.readthedocs.io.
 
-## Features
+### Features
 
 * Facilitate the construction of compartmental models by only defining flow between compartments, and
   automatically generating the corresponding ODEs.

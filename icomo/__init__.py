@@ -1,6 +1,7 @@
 # mypy: disable-error-code="attr-defined"
 # isort: skip_file
 """Inference of Compartmental Models Toolbox."""
+
 from importlib import metadata as importlib_metadata
 
 from . import comp_model, slow_modulation, tools
@@ -16,6 +17,7 @@ from .comp_model import (
 )
 from .slow_modulation import priors_for_cps, sigmoidal_changepoints
 from .tools import hierarchical_priors
+from .jax2pytensor import jax2pytensor
 
 
 def _get_version():

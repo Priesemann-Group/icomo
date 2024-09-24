@@ -1,15 +1,14 @@
-"""Tools to create compartmental models and compile them into functions that can be used."""
+"""Tools to create compartmental models and ODE systems to use with pymc."""
 
 import logging
 
 import diffrax
 import graphviz
-from pytensor.tensor.type import TensorType
 import jax
+from jax.tree_util import tree_map
 
 # import jax.numpy as jnp
-
-from icomo.pytensor_op import create_and_register_jax
+from icomo.jax2pytensor import jax2pytensor
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +62,10 @@ def Erlang_SEIRS(t, y, args):
         of "Es", "Is", "Rs" have to be a list of length `n` where `n` is the number of
         compartments/shape of the Erlang distribution/kernel.
     args: tuple: (callable, dict)
-        Callable is a function with argument t that returns the value of the transmission
-        rate beta(t)
-        dict is the constant arguments of the model. Has to include keys "N", "rate_latent",
-        "rate_infectious" and "rate_recovery".
+        Callable is a function with argument t that returns the value of the
+        transmission rate beta(t) dict is the constant arguments of the model. Has to
+        include keys "N", "rate_latent", "rate_infectious" and "rate_recovery".
+
     Returns
     -------
     dComp: dict
@@ -121,7 +120,9 @@ def erlang_kernel(inflow, Vars, rate):
     Vars: list of floats or list of ndarrays
         The compartments of the kernel
     rate: float or ndarray
-        The rate of the kernel, 1/rate is the mean time spent in total in all compartments
+        The rate of the kernel, 1/rate is the mean time spent in total in all
+        compartments
+
     Returns
     -------
     dVars: list of floats or list of ndarrays
@@ -154,8 +155,8 @@ class CompModel:
         Parameters
         ----------
         Comp_dict: dict
-            Dictionary of compartments. Keys are the names of the compartments and values
-            are floats or ndarrays that represent their value.
+            Dictionary of compartments. Keys are the names of the compartments and
+            values are floats or ndarrays that represent their value.
         """
         self.Comp = Comp_dict
         self.dComp = {}
@@ -176,15 +177,15 @@ class CompModel:
         end_comp: str
             Key of the end compartment
         rate: float or ndarray
-            rate of the flow to add between compartments, is multiplied by start_comp, so it should
-            be broadcastable whith it.
+            rate of the flow to add between compartments, is multiplied by start_comp,
+            so it should be broadcastable whith it.
         label: str, optional
             label of the edge between the compartments that will be used when displaying
             a graph of the compartmental model.
         end_comp_is_list: bool, default: False
-            If True, end_comp points to a list of compartments, and the outflow is added to
-            the first of them. This is typically the case when the end compartment is
-            used with a Erlang kernel.
+            If True, end_comp points to a list of compartments, and the outflow is
+            added to the first of them. This is typically the case when the end
+            compartment is used with a Erlang kernel.
 
         Returns
         -------
@@ -222,8 +223,8 @@ class CompModel:
             label of the edge between the compartments that will be used when displaying
             a graph of the compartmental model.
         end_comp_is_list: bool, default: False
-            If True, end_comp points to a list of compartments, and the outflow is added to
-            the first of them. This is typically the case when the end compartment is
+            If True, end_comp points to a list of compartments, and the outflow is added
+            to the first of them. This is typically the case when the end compartment is
             used with a Erlang kernel.
         """
         if not (
@@ -243,11 +244,11 @@ class CompModel:
 
     def _add_dy_to_comp(self, comp_key, dy, comp_is_list=False):
         if not comp_is_list:
-            if not comp_key in self.dComp.keys():
+            if comp_key not in self.dComp.keys():
                 self.dComp[comp_key] = 0
             self.dComp[comp_key] = self.dComp[comp_key] + dy
         else:
-            if not comp_key in self.dComp.keys():
+            if comp_key not in self.dComp.keys():
                 self.dComp[comp_key] = [0 for _ in self.Comp[comp_key]]
             if isinstance(dy, list):
                 if not len(dy) == len(self.Comp[comp_key]):
@@ -278,8 +279,8 @@ class CompModel:
         Parameters
         ----------
         on_display : bool
-            If True, the graph is displayed in the notebook, otherwise it is saved as a
-            pdf in the current folder and opened with the default pdf viewer.
+            If True, the graph is displayed in the notebook, otherwise it is saved as a pdf
+            in the current folder and opened with the default pdf viewer.
 
         Returns
         -------
@@ -291,7 +292,7 @@ class CompModel:
                 from IPython.display import display
 
                 display(self.graph)
-            except:
+            except Exception:
                 self.graph.view()
         else:
             self.graph.view()
@@ -308,8 +309,8 @@ def delayed_copy(initial_var, delayed_vars, tau_delay):
         The compartment that is copied
     delayed_vars : list of floats or list of ndarrays
         List of compartments that are delayed copies of initial_var, the last element
-        is the compartment which has the same total content as initial_var over time, but
-        is delayed by tau_delay.
+        is the compartment which has the same total content as initial_var over time,
+        but is delayed by tau_delay.
     tau_delay : float or ndarray
         The mean delay of the copy.
 
@@ -329,10 +330,10 @@ class ODEIntegrator:
     """Creates an integrator for compartmental models.
 
     The integrator is a function that
-    takes as input a function that returns the derivatives of the variables of the system
-    of differential equations, and returns a function that solves the system of
-    differential equations. For the initilization of the integrator object, the timesteps
-    of the solver and the output have to be specified.
+    takes as input a function that returns the derivatives of the variables of the
+    system of differential equations, and returns a function that solves the system of
+    differential equations. For the initilization of the integrator object, the
+    timesteps of the solver and the output have to be specified.
 
     """
 
@@ -342,7 +343,7 @@ class ODEIntegrator:
         ts_solver=None,
         ts_arg=None,
         interp="cubic",
-        solver=diffrax.Tsit5(),
+        solver=None,
         t_0=None,
         t_1=None,
         **kwargs,
@@ -354,28 +355,33 @@ class ODEIntegrator:
         ts_out : array-like
             The timesteps at which the output is returned.
         ts_solver : array-like or None
-            The timesteps at which the solver will be called. If None, it is set to ts_out.
+            The timesteps at which the solver will be called. If None, it is set to
+            ts_out.
         ts_arg : array-like or None
-            The timesteps at which the time-dependent argument of the system of differential
-            equations are given. If None, it is set to ts_solver.
+            The timesteps at which the time-dependent argument of the system of
+            differential equations are given. If None, it is set to ts_solver.
         interp : str
-            The interpolation method used to interpolate_pytensor the time-dependent argument of the
-            system of differential equations. Can be "cubic" or "linear".
+            The interpolation method used to interpolate_pytensor the time-dependent
+            argument of the system of differential equations.
+            Can be "cubic" or "linear".
         solver : :class:`diffrax.AbstractStepSizeController`
-            The solver used to integrate the system of differential equations. Default is
-            diffrax.Tsit5(), a 5th order Runge-Kutta method.
+            The solver used to integrate the system of differential equations.
+            Default is diffrax.Tsit5(), a 5th order Runge-Kutta method.
         t_0 : float or None
             The initial time of the integration. If None, it is set to ts_solve[0].
         t_1 : float or None
             The final time of the integration. If None, it is set to ts_solve[-1].
         **kwargs
-            Arguments passed to the solver, see :func:`diffrax.diffeqsolve` for more details.
+            Arguments passed to the solver, see :func:`diffrax.diffeqsolve` for more
+            details.
         """
         self.ts_out = ts_out
         if ts_solver is None:
             self.ts_solver = self.ts_out
         else:
             self.ts_solver = ts_solver
+        if solver is None:
+            solver = diffrax.Tsit5()
         if t_0 is None:
             self.t_0 = float(self.ts_solver[0])
         else:
@@ -404,9 +410,9 @@ class ODEIntegrator:
             differential equations. The function has to take as input the time `t`, the
             variables `y` and the arguments `args=(arg_t, constant_args)` of the system
             of differential equations.
-            `t` is a float, `y` is a list or dict of floats or ndarrays, or in general, a
-            pytree, see :mod:`jax.tree_util` for more details. The return value of the function
-            has to be a pytree/list/dict with the same structure as `y`.
+            `t` is a float, `y` is a list or dict of floats or ndarrays, or in general,
+            a pytree, see :mod:`jax.tree_util` for more details. The return value of the
+            function has to be a pytree/list/dict with the same structure as `y`.
         list_keys_to_return : list of str or None, default is None
             The keys of the variables of the system of differential equations that are
             returned by the integrator. If set, the integrator returns a list of the
@@ -417,13 +423,13 @@ class ODEIntegrator:
         -------
         integrator : function(y0, arg_t=None, constant_args=None)
             A function that solves the system of differential equations and returns the
-            output at the specified timesteps. The function takes as input `y0` the initial
-            values of the variables of the system of differential equations, the
+            output at the specified timesteps. The function takes as input `y0` the
+            initial values of the variables of the system of differential equations, the
             time-dependent argument of the system of differential equations `arg_t`, and
-            the constant arguments `constant_args` of the system of differential equations. `t`, `y0` and
-            `(arg_t, constant_args)` are passed to the ODE function as its three arguments.
-            If `arg_t` is `None`, only `constant_args` are passed to the ODE function and
-            vice versa, without being in a tuple.
+            the constant arguments `constant_args` of the system of differential
+            equations. `t`, `y0` and `(arg_t, constant_args)` are passed to the ODE
+            function as its three arguments. If `arg_t` is `None`, only `constant_args`
+            are passed to the ODE function and vice versa, without being in a tuple.
 
         """
 
@@ -444,7 +450,8 @@ class ODEIntegrator:
 
             if arg_t is None and self.ts_arg is not None:
                 logger.warning(
-                    "You did specify ts_arg, but arg_t is None. Did you mean to do this?"
+                    "You did specify ts_arg, but arg_t is None. "
+                    "Did you mean to do this?"
                 )
             term = diffrax.ODETerm(ODE)
 
@@ -461,7 +468,7 @@ class ODEIntegrator:
 
             stepsize_controller = (
                 diffrax.StepTo(ts=self.ts_solver)  # jnp.array?
-                if not "stepsize_controller" in self.kwargs_solver
+                if "stepsize_controller" not in self.kwargs_solver
                 else self.kwargs_solver["stepsize_controller"]
             )
 
@@ -500,11 +507,12 @@ class ODEIntegrator:
     ):
         """Return a pytensor operator that solves the system of differential equations.
 
-        Same as get_func, but returns a pytensor operator that can be used in a pymc model.
-        Beware that for this operator the output of the integration of the ODE can only
-        be a single or a list variables. If the output is a dict, set list_keys_to_return
-        to specify the keys of the variables that are returned by the integrator. These
-        return values aren't allowed to be further nested.
+        Same as get_func, but returns a pytensor operator that can be used in a pymc
+        model. Beware that for this operator the output of the integration of the ODE
+        can only be a single or a list variables. If the output is a dict,
+        set list_keys_to_return to specify the keys of the variables that are
+        returned by the integrator. These return values aren't allowed to be further
+        nested.
 
         Parameters
         ----------
@@ -512,18 +520,18 @@ class ODEIntegrator:
             A function that returns the derivatives of the variables of the system of
             differential equations. The function has to take as input the time `t`, the
             variables `y` and the arguments `args=(arg_t, constant_args)` of the system
-            of differential equations.
-            `t` is a float, `y` is a list or dict of floats or ndarrays, or in general, a
-            pytree, see :mod:`jax.tree_util` for more details. The return value of the function
-            has to be a pytree/list/dict with the same structure as `y`.
+            of differential equations. `t` is a float, `y` is a list or dict of
+            floats or ndarrays, or in general, a pytree, see :mod:`jax.tree_util` for
+            more details. The return value of the function has to be a
+            pytree/list/dict with the same structure as `y`.
         return_shapes : tuple of tuples, default is ((),)
             The shapes (except the time dimension) of the variables of the system of
             differential equations that are returned by the integrator. If
-            `list_keys_to_return` is `None`, the shapes have to be given in the same order
-            as the variables are returned by the integrator. If `list_keys_to_return` is
-            not `None`, the shapes have to be given in the same order as the keys in
-            `list_keys_to_return`. The default `((),)` means a single variable with only a
-            time dimension is returned.
+            `list_keys_to_return` is `None`, the shapes have to be given in the same
+            order as the variables are returned by the integrator. If
+            `list_keys_to_return` is not `None`, the shapes have to be given in the
+            same order as the keys in `list_keys_to_return`. The default `((), )` means
+            a single variable with only a time dimension is returned.
         list_keys_to_return : list of str or None, default is None
             The keys of the variables of the system of differential equations that will
             be chosen to be returned by the integrator. Necessary if the ODE returns a
@@ -540,22 +548,26 @@ class ODEIntegrator:
         """
         integrator = self.get_func(ODE, list_keys_to_return=list_keys_to_return)
 
-        pytensor_op = create_and_register_jax(
+        if list_keys_to_return is None:
+            output_shape_def = lambda y0, **kwargs: tree_map(
+                lambda shape: (len(self.ts_out),) + shape, y0
+            )
+        else:
+            output_shape_def = lambda y0, **kwargs: tuple(
+                [(len(self.ts_out),) + y0[key] for key in list_keys_to_return]
+            )
+
+        pytensor_op = jax2pytensor(
             integrator,
-            output_types=[
-                TensorType(
-                    dtype="float64", shape=tuple([len(self.ts_out)] + list(shape))
-                )
-                for shape in return_shapes
-            ],
-            name=name,
+            output_shape_def=output_shape_def,
         )
+
         return pytensor_op
 
 
 def interpolation_func(ts, x, method="cubic"):
     """
-    Return a diffrax-interpolation function that can be used to interpolate_pytensor the time-dependent variable.
+    Return a diffrax-interpolation function that can be used to interpolate pytensors.
 
     Parameters
     ----------
@@ -569,8 +581,8 @@ def interpolation_func(ts, x, method="cubic"):
     Returns
     -------
     interp : :class:`diffrax.CubicInterpolation` or :class:`diffrax.LinearInterpolation`
-        The interpolation function. Call `interp.evaluate(t)` to evaluate the interpolated
-        variable at time `t`. t can be a float or an array-like.
+        The interpolation function. Call `interp.evaluate(t)` to evaluate the
+        interpolated variable at time `t`. t can be a float or an array-like.
 
     """
     # ts = jnp.array(ts)
@@ -581,7 +593,8 @@ def interpolation_func(ts, x, method="cubic"):
         interp = diffrax.LinearInterpolation(ts, x)
     else:
         raise RuntimeError(
-            f'Interpoletion method {method} not known, possibilities are "cubic" or "linear"'
+            f'Interpoletion method {method} not known, possibilities are "cubic" or '
+            f'"linear"'
         )
     return interp
 
@@ -620,11 +633,9 @@ def interpolate_pytensor(
         else:
             return jax.vmap(interp.evaluate, 0, 0)(ts_out)
 
-    interpolator_op = create_and_register_jax(
+    interpolator_op = jax2pytensor(
         interpolator,
-        output_types=[
-            TensorType(dtype="float64", shape=(len(ts_out),)),
-        ],
+        output_shape_def=lambda y, **kwargs: (len(ts_out),) + y[1:],
         name=name,
     )
 

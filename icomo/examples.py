@@ -1,9 +1,6 @@
 """Example of the inference of compartmental models."""
 
-import sys
-
 import diffrax
-import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pymc.sampling.jax

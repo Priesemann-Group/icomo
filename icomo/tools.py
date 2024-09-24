@@ -16,8 +16,8 @@ def hierarchical_priors(
     """Create hierarchical priors for a variable.
 
     Create an n-dimensional variable with hierarchical prior with name `name` and
-    dimensions `dims`. The prior is a normal distribution with standard deviation `sigma`
-    which is sample from a half-cauchy distribution with beta parameter `beta`.
+    dimensions `dims`. The prior is a normal distribution with standard deviation
+    `sigma` which is sample from a half-cauchy distribution with beta parameter `beta`.
 
     Parameters
     ----------
@@ -35,7 +35,8 @@ def hierarchical_priors(
         functools.partial(pm.StudentT, nu=4) to sample from a StudentT distribution for
         a more robust model.
     centered_parametrization : bool, default=False
-        Whether to use a centered or non-centered parametrization for the hierarchical prior
+        Whether to use a centered or non-centered parametrization for the hierarchical
+        prior
     empirical_sigma : bool, default=False
         Whether to set the standard deviation of the normal distribution to the standard
         deviation of the sampled value. Corresponds to an empirical Bayes approach.
