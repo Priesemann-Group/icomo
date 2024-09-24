@@ -279,8 +279,8 @@ class CompModel:
         Parameters
         ----------
         on_display : bool
-            If True, the graph is displayed in the notebook, otherwise it is saved as a pdf
-            in the current folder and opened with the default pdf viewer.
+            If True, the graph is displayed in the notebook, otherwise it is saved as a
+            pdf in the current folder and opened with the default pdf viewer.
 
         Returns
         -------

@@ -55,17 +55,21 @@ Ready to contribute? Here’s how to set up `icomo` for local development.
 git clone git@github.com:your_name_here/icomo.git
 ```
 
-3.  Install your local copy into a virtualenv. Assuming you have
-    virtualenvwrapper installed, this is how you set up your fork for
-    local development:
+3.  Make a virtual environment with your favorite tool. Then install the package
+    including dev dependencies in editable mode:
 
 ```bash
-mkvirtualenv icomo
 cd icomo/
-pip install -e .
+pip install -e .[dev]
 ```
 
-4.  Create a branch for local development::
+4. Install pre-commit hooks:
+
+```bash
+pre-commit install
+```
+
+5. Create a branch for local development::
 
 ```bash
 git checkout -b name-of-your-bugfix-or-feature
@@ -73,12 +77,12 @@ git checkout -b name-of-your-bugfix-or-feature
 
 Now you can make your changes locally.
 
-5.  When you’re done making changes, check that your changes pass flake8
-    and the tests, including testing other Python versions with tox::
+6. When you’re done making changes, check that your passes the linter and formatter,
+   and passes all tests
 
 ```bash
-make lint
-make test
+pre-commit run --all-files
+pytest
 ```
 
 
