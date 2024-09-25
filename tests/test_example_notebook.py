@@ -277,16 +277,14 @@ def test_bayes():
 
         SEIR_integrator_op = integrator_object_bayes.get_op(
             Erlang_SEIR,
-            return_shapes=[() for _ in range(2)],
-            list_keys_to_return=["S", "I"],
         )
 
-        S, I = SEIR_integrator_op(
+        output = SEIR_integrator_op(
             y0=y0_var, arg_t=beta_t_var, constant_args=const_args_var
         )
 
-        pm.Deterministic("I", I)
-        new_cases = -pt.diff(S)
+        pm.Deterministic("I", output["I"])
+        new_cases = -pt.diff(output["S"])
         pm.Deterministic("new_cases", new_cases)
 
         sigma_error = pm.HalfCauchy("sigma_error", beta=1)

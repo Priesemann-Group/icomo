@@ -156,9 +156,7 @@ def jax2pytensor(
             input_types_dic = {
                 arg: shapes for arg, shapes in zip(inputnames_list, input_shapes_list)
             }
-            print(input_types_dic)
             output_shape = output_shape_def(**input_types_dic)
-            print(output_shape)
 
             # For flattening the output shapes, we need to redefine what is a leaf, so
             # that the shape tuples don't get also flattened.

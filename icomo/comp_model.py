@@ -525,17 +525,11 @@ class ODEIntegrator:
             more details. The return value of the function has to be a
             pytree/list/dict with the same structure as `y`.
         return_shapes : tuple of tuples, default is ((),)
-            The shapes (except the time dimension) of the variables of the system of
-            differential equations that are returned by the integrator. If
-            `list_keys_to_return` is `None`, the shapes have to be given in the same
-            order as the variables are returned by the integrator. If
-            `list_keys_to_return` is not `None`, the shapes have to be given in the
-            same order as the keys in `list_keys_to_return`. The default `((), )` means
-            a single variable with only a time dimension is returned.
+            Depreceated, the return shape had to be specified before, now it is inferred
+            automatically. This argument isn't used anymore.
         list_keys_to_return : list of str or None, default is None
             The keys of the variables of the system of differential equations that will
-            be chosen to be returned by the integrator. Necessary if the ODE returns a
-            `dict`, as :mod:`pytensor` only accepts single outputs or a list of outputs.
+            be chosen to be returned by the integrator.
             If `None`, the output is returned as is.
         name :
             The name under which the operator is registered in pymc.
@@ -558,8 +552,7 @@ class ODEIntegrator:
             )
 
         pytensor_op = jax2pytensor(
-            integrator,
-            output_shape_def=output_shape_def,
+            integrator, output_shape_def=output_shape_def, name=name
         )
 
         return pytensor_op
