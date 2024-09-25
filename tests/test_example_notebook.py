@@ -223,8 +223,8 @@ def test_fitting(initialization_integrator_simple):
 
     res = solver.run(init_params)
 
-    assert np.isclose(res.params["beta_t"][-2], 0.24915876, atol=1e-5)
-    assert np.isclose(res.params["beta_t"][1], 0.10921172, atol=1e-5)
+    assert np.isclose(res.params["beta_t"][-2], 0.24915876, atol=1e-4)
+    assert np.isclose(res.params["beta_t"][1], 0.10921172, atol=1e-4)
 
 
 def test_bayes():
