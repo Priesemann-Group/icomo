@@ -18,11 +18,11 @@ def test_models():
     with pm.Model() as model1:
         x, y = pm.Normal("input", size=2)
 
+        @jax2pytensor
         def f(x, y):
             return jax.nn.sigmoid(x + y), y * 2
 
-        f_op = jax2pytensor(f)
-        out, _ = f_op(x, y)
+        out, _ = f(x, y)
         pm.Normal("obs", out, observed=3)
 
     # 2 parameters input, single output

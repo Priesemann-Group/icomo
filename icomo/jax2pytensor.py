@@ -5,13 +5,12 @@ import logging
 from collections.abc import Sequence
 
 import jax
-
-# import jax.tree
 import jax.numpy as jnp
 import numpy as np
+import pytensor.compile.builders
 import pytensor.scalar as ps
 import pytensor.tensor as pt
-from jax.tree_util import tree_flatten, tree_leaves, tree_map, tree_unflatten
+from jax.tree_util import tree_flatten, tree_map, tree_unflatten
 from pytensor.gradient import DisconnectedType
 from pytensor.graph import Apply, Op
 from pytensor.link.jax.dispatch import jax_funcify
@@ -23,7 +22,7 @@ class _Shape(tuple):
     pass
 
 
-def jax2pytensor(
+def _jax2pytensor(
     jaxfunc,
     output_shape_def=None,
     args_for_graph="all",
@@ -100,10 +99,12 @@ def jax2pytensor(
         inputs_flat, input_treedef = tree_flatten(inputs_list)
         input_types_flat = [inp.type for inp in inputs_flat]
 
+        """
         ### Test whether all inputs have a defined shape, if not, raise an error.
         for input_var, inputname in zip(inputs_list, inputnames_list):
             for i, input_elem in enumerate(tree_leaves(input_var)):
                 type = input_elem.type
+
                 if None in type.shape:
                     if output_shape_def is None:
                         raise RuntimeError(
@@ -113,56 +114,51 @@ def jax2pytensor(
                             f"output, or set the shape of the tensor to a integer with "
                             f"input_var.type.shape = (10,) for example."
                         )
+        """
 
-        ### Find out the output shapes.
-        if output_shape_def is not None:
-            output_shapes_flat, output_treedef = _get_output_shape_from_user(
-                output_shape_def, input_treedef, inputnames_list, input_types_flat
-            )
+        ### Infer output shape and type from jax function, it works by passing
+        ### pt.TensorTyp variables, as jax only needs type and shape information.
 
-            output_types = [
-                pt.TensorType(dtype=input_dtype, shape=shape)
-                for shape in output_shapes_flat
-            ]
+        # Convert static_argnames to static_argnums because make_jaxpr requires it.
+        static_argnums = tuple(
+            i
+            for i, (k, param) in enumerate(func_signature.parameters.items())
+            if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+            and k in static_argnames
+        )
 
-        else:
-            ### Infer output shape and type from jax function, it works by passing
-            ### pt.TensorTyp variables, as jax only needs type and shape information.
+        shapes = pytensor.compile.builders.infer_shape(inputs_flat, (), ())
+        dummy_inputs_jax = [
+            jnp.zeros([int(dim.eval()) for dim in shape], dtype=inp.type.dtype)
+            for inp, shape in zip(inputs_flat, shapes)
+        ]
 
-            # Convert static_argnames to static_argnums because make_jaxpr requires it.
-            static_argnums = tuple(
-                i
-                for i, (k, param) in enumerate(func_signature.parameters.items())
-                if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
-                and k in static_argnames
-            )
+        # Evaluate shape, could have also used jax.eval_shape or
+        # equinox.filter_eval_shape, for future...
+        _, output_shape_jax = jax.make_jaxpr(
+            _flattened_input_func(
+                jaxfunc,
+                input_treedef,
+                inputnames_list,
+                other_args_dic,
+                flatten_output=False,
+            ),
+            static_argnums=static_argnums,
+            return_shape=True,
+        )(dummy_inputs_jax)
 
-            _, output_shape_jax = jax.make_jaxpr(
-                _flattened_input_func(
-                    jaxfunc,
-                    input_treedef,
-                    inputnames_list,
-                    other_args_dic,
-                    flatten_output=False,
-                ),
-                static_argnums=static_argnums,
-                return_shape=True,
-            )(tree_map(lambda x: x.type, inputs_flat))
+        out_shape_jax_flat, output_treedef = tree_flatten(output_shape_jax)
 
-            out_shape_jax_flat, output_treedef = tree_flatten(output_shape_jax)
-
-            output_types = [
-                pt.TensorType(dtype=var.dtype, shape=var.shape)
-                for var in out_shape_jax_flat
-            ]
+        output_types = [
+            pt.TensorType(dtype=var.dtype, shape=var.shape)
+            for var in out_shape_jax_flat
+        ]
 
         ### Create the Pytensor Op, the normal one and the vector-jacobian product (vjp)
-        jitted_sol_op_jax = jax.jit(
-            _flattened_input_func(
-                jaxfunc, input_treedef, inputnames_list, other_args_dic
-            ),
-            static_argnames=static_argnames,
+        flat_func = _flattened_input_func(
+            jaxfunc, input_treedef, inputnames_list, other_args_dic
         )
+        jitted_sol_op_jax = jax.jit(flat_func, static_argnames=static_argnames)
 
         def vjp_sol_op_jax(args):
             y0 = args[:-len_gz]
@@ -535,11 +531,15 @@ def _return_pytensor_ops_classes(name):
     return SolOp, VJPSolOp
 
 
-class _TransfFunc:
+class jax2pytensor:
+    """Return a pytensor from a jax jittable function."""
+
     def __init__(self, jaxfunc, *args, **kwargs):
         self.jaxfunc = jaxfunc
         self.args = args
         self.kwargs = kwargs
+        self.pytensor_func = _jax2pytensor(jaxfunc, *args, **kwargs)
 
     def __call__(self, *args, **kwargs):
-        pass
+        """Return a pytensor from a jax jittable function."""
+        return self.pytensor_func(*args, **kwargs)
