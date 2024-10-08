@@ -1,9 +1,11 @@
 """Convert a jax function to a pytensor compatible function."""
 
+import functools as ft
 import inspect
 import logging
 from collections.abc import Sequence
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -16,6 +18,8 @@ from pytensor.graph import Apply, Op
 from pytensor.link.jax.dispatch import jax_funcify
 
 log = logging.getLogger(__name__)
+
+_filter = lambda x: isinstance(x, pt.Variable)
 
 
 class _Shape(tuple):
@@ -69,13 +73,7 @@ def _jax2pytensor(
     ### Construct the function to return that is compatible with pytensor but has the
     ### same signature as the jax function.
     def new_func(*args, **kwargs):
-        func_signature = inspect.signature(jaxfunc)
-
-        (
-            inputs_list,
-            inputnames_list,
-            other_args_dic,
-        ) = _split_arguments(func_signature, args, kwargs, args_for_graph)
+        vars, static_vars = eqx.partition((args, kwargs), _filter)
 
         nonlocal input_dtype
         if input_dtype is None:
@@ -84,7 +82,7 @@ def _jax2pytensor(
             # to obtain the dtype. We transform all inputs to the same dtype, to
             # avoid issues if a variable with integer type is given as input, which
             # leads to error when differentiating the function.
-            inputs_list_tmp = tree_map(lambda x: pt.as_tensor_variable(x), inputs_list)
+            inputs_list_tmp = tree_map(lambda x: pt.as_tensor_variable(x), vars)
             inputs_flat_tmp, _ = tree_flatten(inputs_list_tmp)
             input_types_flat_tmp = [inp.type for inp in inputs_flat_tmp]
             input_dtype = ps.upcast(
@@ -93,72 +91,101 @@ def _jax2pytensor(
             del inputs_list_tmp, inputs_flat_tmp, input_types_flat_tmp
 
         # Convert our inputs to symbolic variables
-        inputs_list = tree_map(
-            lambda x: pt.as_tensor_variable(x, dtype=input_dtype), inputs_list
-        )
-        inputs_flat, input_treedef = tree_flatten(inputs_list)
-        input_types_flat = [inp.type for inp in inputs_flat]
-
-        """
-        ### Test whether all inputs have a defined shape, if not, raise an error.
-        for input_var, inputname in zip(inputs_list, inputnames_list):
-            for i, input_elem in enumerate(tree_leaves(input_var)):
-                type = input_elem.type
-
-                if None in type.shape:
-                    if output_shape_def is None:
-                        raise RuntimeError(
-                            f"A dimension of input {inputname}, element {i} is "
-                            f"undefined: {type.shape} You need to provide the "
-                            f"output_shape_def function to define the shape of the "
-                            f"output, or set the shape of the tensor to a integer with "
-                            f"input_var.type.shape = (10,) for example."
-                        )
-        """
+        pt_vars = tree_map(lambda x: pt.as_tensor_variable(x, dtype=input_dtype), vars)
+        # inputs_flat, input_treedef = tree_flatten(inputs_list)
+        # input_types_flat = [inp.type for inp in inputs_flat]
 
         ### Infer output shape and type from jax function, it works by passing
         ### pt.TensorTyp variables, as jax only needs type and shape information.
 
         # Convert static_argnames to static_argnums because make_jaxpr requires it.
-        static_argnums = tuple(
-            i
-            for i, (k, param) in enumerate(func_signature.parameters.items())
-            if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
-            and k in static_argnames
+        # static_argnums = tuple(
+        #    i
+        #    for i, (k, param) in enumerate(func_signature.parameters.items())
+        #    if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+        #    and k in static_argnames
+        # )
+
+        # shapes = pytensor.compile.builders.infer_shape(inputs_flat, (), ())
+        pt_vars_flat, vars_treedef = tree_flatten(pt_vars)
+        pt_vars_types_flat = [var.type for var in pt_vars_flat]
+        shapes_vars_flat = pytensor.compile.builders.infer_shape(pt_vars_flat, (), ())
+        shapes_vars = tree_unflatten(vars_treedef, shapes_vars_flat)
+
+        dummy_inputs_jax = jax.tree_util.tree_map(
+            lambda var, shape: jnp.empty(
+                [int(dim.eval()) for dim in shape], dtype=var.type.dtype
+            ),
+            pt_vars,
+            shapes_vars,
         )
 
-        shapes = pytensor.compile.builders.infer_shape(inputs_flat, (), ())
-        dummy_inputs_jax = [
-            jnp.zeros([int(dim.eval()) for dim in shape], dtype=inp.type.dtype)
-            for inp, shape in zip(inputs_flat, shapes)
-        ]
+        # jaxtypes_out = eqx.filter_eval_shape(
+        #    jaxfunc, *dummy_inputs_jax[0], **dummy_inputs_jax[1]
+        # )
 
-        # Evaluate shape, could have also used jax.eval_shape or
-        # equinox.filter_eval_shape, for future...
-        _, output_shape_jax = jax.make_jaxpr(
-            _flattened_input_func(
-                jaxfunc,
-                input_treedef,
-                inputnames_list,
-                other_args_dic,
-                flatten_output=False,
-            ),
-            static_argnums=static_argnums,
-            return_shape=True,
-        )(dummy_inputs_jax)
+        static_outvars = None
 
-        out_shape_jax_flat, output_treedef = tree_flatten(output_shape_jax)
+        def _jaxfunc_partitioned(vars, static_vars):
+            args, kwargs = eqx.combine(vars, static_vars)
+            out = jaxfunc(*args, **kwargs)
+            nonlocal static_outvars
+            outvars, static_outvars = eqx.partition(
+                out,
+                eqx.is_array,  # lambda x: isinstance(x, jax.Array)
+            )
+            # jax.debug.print("static outvars: {}", static_outvars)
+            # jax.debug.print("outvars: {}", outvars)
+            return outvars
 
-        output_types = [
+        def _func_flattened(vars_flat, vars_treedef, static_vars):
+            # jax.debug.print("vars flat: {}", vars_flat)
+            vars = tree_unflatten(vars_treedef, vars_flat)
+            # jax.debug.print("vars: {}", vars)
+            outvars = _jaxfunc_partitioned(vars, static_vars)
+            outvars_flat, _ = tree_flatten(outvars)
+            # jax.debug.print("outvars flat: {}", outvars_flat)
+            return _normalize_flat_output(outvars_flat)
+
+        _func_flattened_partial = ft.partial(
+            _func_flattened,
+            vars_treedef=vars_treedef,
+            static_vars=static_vars,
+        )
+
+        jaxtypes_outvars = jax.eval_shape(
+            ft.partial(_jaxfunc_partitioned, static_vars=static_vars), dummy_inputs_jax
+        )
+
+        # jaxtypes_outvars_flat = (
+        #    (jaxtypes_outvars_flat,)
+        #    if isinstance(jaxtypes_outvars_flat, jax.ShapeDtypeStruct)
+        #    else jaxtypes_outvars_flat
+        # )
+
+        jaxtypes_outvars_flat, outvars_treedef = tree_flatten(jaxtypes_outvars)
+
+        print("jaxtypes_outvars: ", jaxtypes_outvars)
+
+        pttypes_outvars = [
             pt.TensorType(dtype=var.dtype, shape=var.shape)
-            for var in out_shape_jax_flat
+            for var in jaxtypes_outvars_flat
         ]
+        print("pttypes_outvars: ", pttypes_outvars)
 
         ### Create the Pytensor Op, the normal one and the vector-jacobian product (vjp)
-        flat_func = _flattened_input_func(
-            jaxfunc, input_treedef, inputnames_list, other_args_dic
+        # flat_func = _flattened_input_func(
+        #     jaxfunc, input_treedef, inputnames_list, other_args_dic
+        # )
+
+        jitted_sol_op_jax = jax.jit(
+            ft.partial(
+                _func_flattened,
+                vars_treedef=vars_treedef,
+                static_vars=static_vars,
+            )
         )
-        jitted_sol_op_jax = jax.jit(flat_func, static_argnames=static_argnames)
+        len_gz = len(pttypes_outvars)
 
         def vjp_sol_op_jax(args):
             y0 = args[:-len_gz]
@@ -186,14 +213,12 @@ def _jax2pytensor(
         SolOp, VJPSolOp = _return_pytensor_ops_classes(name)
 
         local_op = SolOp(
-            input_treedef,
-            output_treedef,
-            input_arg_names=inputnames_list,
-            input_types=input_types_flat,
-            output_types=output_types,
+            vars_treedef,
+            outvars_treedef,
+            input_types=pt_vars_types_flat,
+            output_types=pttypes_outvars,
             jitted_sol_op_jax=jitted_sol_op_jax,
             jitted_vjp_sol_op_jax=jitted_vjp_sol_op_jax,
-            other_args=other_args_dic,
         )
 
         @jax_funcify.register(SolOp)
@@ -205,12 +230,14 @@ def _jax2pytensor(
             return local_op.vjp_sol_op.perform_jax
 
         ### Evaluate the Pytensor Op and return unflattened results
-        output_flat = local_op(*inputs_flat)
+        print("pt_vars_flat: ", pt_vars_flat)
+        output_flat = local_op(*pt_vars_flat)
         if not isinstance(output_flat, Sequence):
             output_flat = [output_flat]  # tree_unflatten expects a sequence.
-        output = tree_unflatten(output_treedef, output_flat)
-        len_gz = len(output_types)
-
+        outvars = tree_unflatten(outvars_treedef, output_flat)
+        output = eqx.combine(outvars, static_outvars)
+        # output = outvars
+        print("output: ", output)
         return output
 
     return new_func
@@ -256,16 +283,19 @@ def _flattened_input_func(
             return results
         else:
             results, output_treedef_local = tree_flatten(results)
-
-            if len(results) > 1:
-                return tuple(
-                    results
-                )  # Transform to tuple because jax makes a difference between
-                # tuple and list and not pytensor
-            else:
-                return results[0]
+            return _normalize_flat_output(results)
 
     return new_func
+
+
+def _normalize_flat_output(output):
+    if len(output) > 1:
+        return tuple(
+            output
+        )  # Transform to tuple because jax makes a difference between
+        # tuple and list and not pytensor
+    else:
+        return output[0]
 
 
 def _get_output_shape_from_user(
@@ -413,24 +443,22 @@ def _return_pytensor_ops_classes(name):
             self,
             input_treedef,
             output_treeedef,
-            input_arg_names,
             input_types,
             output_types,
             jitted_sol_op_jax,
             jitted_vjp_sol_op_jax,
-            other_args,
         ):
             self.vjp_sol_op = None
             self.input_treedef = input_treedef
             self.output_treedef = output_treeedef
-            self.input_arg_names = input_arg_names
             self.input_types = input_types
             self.output_types = output_types
             self.jitted_sol_op_jax = jitted_sol_op_jax
             self.jitted_vjp_sol_op_jax = jitted_vjp_sol_op_jax
-            self.other_args = other_args
 
         def make_node(self, *inputs):
+            print("make_node inputs: ", inputs)
+
             self.num_inputs = len(inputs)
 
             # Define our output variables
@@ -441,12 +469,13 @@ def _return_pytensor_ops_classes(name):
                 self.input_treedef,
                 self.input_types,
                 self.jitted_vjp_sol_op_jax,
-                self.other_args,
             )
+            print("make_node outputs: ", outputs)
 
             return Apply(self, inputs, outputs)
 
         def perform(self, node, inputs, outputs):
+            print("perform inputs: ", inputs)
             results = self.jitted_sol_op_jax(inputs)
             if self.num_outputs > 1:
                 for i in range(self.num_outputs):
@@ -479,12 +508,14 @@ def _return_pytensor_ops_classes(name):
     # vector-jacobian product Op
     class VJPSolOp(Op):
         def __init__(
-            self, input_treedef, input_types, jitted_vjp_sol_op_jax, other_args
+            self,
+            input_treedef,
+            input_types,
+            jitted_vjp_sol_op_jax,
         ):
             self.input_treedef = input_treedef
             self.input_types = input_types
             self.jitted_vjp_sol_op_jax = jitted_vjp_sol_op_jax
-            self.other_args = other_args
 
         def make_node(self, y0, gz):
             y0 = [

@@ -34,6 +34,7 @@ dependencies = [
     "diffrax",
     "optax",
     "jaxopt",
+    "equinox",
 ]
 
 [project.optional-dependencies]
