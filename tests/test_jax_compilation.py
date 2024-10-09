@@ -123,7 +123,6 @@ def test_models():
 
         f_op = jax2pytensor(
             f,
-            args_for_graph=["x", "y"],
         )
         out_x, out_y = f_op(x, y_tmp, "Hello World!")
 
@@ -137,7 +136,7 @@ def test_models():
         def f(x, y):
             return x[:, None] @ y[None], x
 
-        f_op = jax2pytensor(f, args_for_graph=["x", "y"])
+        f_op = jax2pytensor(f)
         out_x, out_y = f_op(x, y)
 
         pm.Normal("obs", out_y[0], observed=(3,))
@@ -192,11 +191,52 @@ def test_models():
         def f12(x, y):
             return x * jnp.ones(3)
 
-        f_op = jax2pytensor(f12, output_shape_def=lambda **_: (3,))
+        f_op = jax2pytensor(f12)
         out_x = f_op(x, y)
         # out_x = x[:, None] @ y[None]
 
         pm.Normal("obs", out_x[0], observed=2)
+
+    # Test non-array return values
+    with pm.Model() as model14:
+        x = pm.Normal("input", size=3)
+        y = pm.Normal("input2", size=3)
+
+        # Now x has an unknown shape
+        x = pt.cumsum(x)
+
+        def f14(x, y, message):
+            return x * jnp.ones(3), "Success: " + message
+
+        f_op = jax2pytensor(f14)
+        out_x, message = f_op(x, y, "Hi")
+        assert message == "Success: Hi"
+
+        pm.Normal("obs", out_x[0], observed=2)
+    """
+    with pm.Model() as model15:
+        x = pm.Normal("input", size=3)
+        y = pm.Normal("input2", size=3)
+
+        @jax2pytensor
+        def f_internal(x):
+            @jax2pytensor
+            def f_ret(t):
+                return x + t
+
+            return f_ret
+
+        # Now x has an unknown shape
+        f = f_internal(x)
+
+        def f15(x, f):
+            return x * jnp.ones(3), f(x)
+
+        f_op = jax2pytensor(f15)
+        out_x = f_op(y, f)
+
+        pm.Normal("obs", out_x[1], observed=2)
+        """
 
     return (
         model1,
@@ -212,6 +252,8 @@ def test_models():
         model11,
         model12,
         model13,
+        model14,
+        # model15,
     )
 
 

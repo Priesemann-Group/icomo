@@ -22,11 +22,8 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 dynamic = ["version"]
-requires-python = '>=3.8.1'
+requires-python = '>=3.8'
 dependencies = [
-    "numpy",
-    "matplotlib",
-    "tqdm",
     "pymc == 5.*",
     "pytensor",
     "numpyro",
@@ -35,20 +32,22 @@ dependencies = [
     "optax",
     "jaxopt",
     "equinox",
+    "jax!=0.4.34",
 ]
 
 [project.optional-dependencies]
 dev = [
-"pytest >= 7.3.2",
-"pre-commit >= 3.3.2",
-"ruff >= 0.0.272",
-"ipykernel >= 6.0.0",
-"Sphinx >= 6.2.1",
-"sphinx-book-theme",
-"importlib-metadata >= 6.5.1",
-"myst-parser >= 0.19.2",
-"nbsphinx >= 0.9.2",
-"pandoc >= 2.3",
+    "pytest >= 7.3.2",
+    "pytest-xdist",
+    "pre-commit >= 3.3.2",
+    "ruff >= 0.0.272",
+    "ipykernel >= 6.0.0",
+    "Sphinx >= 6.2.1",
+    "sphinx-book-theme",
+    "importlib-metadata >= 6.5.1",
+    "myst-parser >= 0.19.2",
+    "nbsphinx >= 0.9.2",
+    "pandoc >= 2.3",
 ]
 
 [project.urls]
@@ -95,5 +94,9 @@ packages = ["icomo"]
 
 [tool.setuptools_scm]
 write_to = "icomo/_version.py"
+
+[tool.uv]
+constraint-dependencies = ["numpy<2"]
+
 
 

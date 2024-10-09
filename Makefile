@@ -56,7 +56,19 @@ lint: ## lint the project
 
 .PHONY: test
 test: ## run tests quickly with the default Python
-	pytest
+	pytest -n auto
+
+.PHONY: test-latest
+test-latest: ## run tests quickly with the latest packages, install uv before running this
+	uv venv
+	uv pip install -e . --upgrade
+	uv pip install -e .[dev]
+	.venv/bin/pytest -n auto
+	uv pip compile pyproject.toml --upgrade -o requirements.txt --quiet
+	@echo "---------------------------------"
+	@echo "Requirements.txt has been updated"
+
+
 
 .PHONY:docs-build
 docs-build:
