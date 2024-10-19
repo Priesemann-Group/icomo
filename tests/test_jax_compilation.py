@@ -9,7 +9,7 @@ import pytensor
 import pytensor.tensor as pt
 import pytest
 
-from icomo import jax2pytensor
+from icomo import jax2pyfunc, jax2pytensor
 
 
 @pytest.fixture
@@ -213,30 +213,28 @@ def test_models():
         assert message == "Success: Hi"
 
         pm.Normal("obs", out_x[0], observed=2)
-    """
+
     with pm.Model() as model15:
         x = pm.Normal("input", size=3)
         y = pm.Normal("input2", size=3)
 
-        @jax2pytensor
-        def f_internal(x):
-            @jax2pytensor
+        # @jax2pytensor
+        @jax2pyfunc
+        def f_internal(y):
             def f_ret(t):
-                return x + t
+                return y + t
 
             return f_ret
 
-        # Now x has an unknown shape
-        f = f_internal(x)
+        f = f_internal(y)
 
+        @jax2pytensor
         def f15(x, f):
             return x * jnp.ones(3), f(x)
 
-        f_op = jax2pytensor(f15)
-        out_x = f_op(y, f)
+        out_x = f15(y, f)
 
-        pm.Normal("obs", out_x[1], observed=2)
-        """
+        pm.Normal("obs", out_x[1], observed=[2, 2, 2])
 
     return (
         model1,
@@ -253,7 +251,7 @@ def test_models():
         model12,
         model13,
         model14,
-        # model15,
+        model15,
     )
 
 

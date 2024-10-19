@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 .DEFAULT_GOAL := help
 
 # RELEASE_APP=npx --yes \
@@ -58,15 +60,23 @@ lint: ## lint the project
 test: ## run tests quickly with the default Python
 	pytest -n auto
 
+
+## run tests quickly with the latest packages, install uv before running this command
+## uv doesn't have the same dependency resolution behavior as pip, so it may not lead
+## to the same result as running `pip install -e .[dev]`, which is performed by
+## CI of github.
 .PHONY: test-latest
-test-latest: ## run tests quickly with the latest packages, install uv before running this
-	uv venv
+test-latest:
+	uv venv .venv_test_setup
 	uv pip install -e . --upgrade
 	uv pip install -e .[dev]
-	.venv/bin/pytest -n auto
+	source .venv_test_setup/bin/activate
+	pytest -n auto
 	uv pip compile pyproject.toml --upgrade -o requirements.txt --quiet
-	@echo "---------------------------------"
-	@echo "Requirements.txt has been updated"
+	@echo "---------------------------------------"
+	@echo "---Requirements.txt has been updated---"
+	@echo "---------------------------------------"
+	deactivate
 
 
 

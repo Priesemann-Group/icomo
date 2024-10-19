@@ -22,66 +22,99 @@ log = logging.getLogger(__name__)
 _filter = lambda x: isinstance(x, pt.Variable)
 
 
-class _Shape(tuple):
-    pass
+class _WrappedFunc:
+    def __init__(self, func, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        vars, static_vars = eqx.partition((self.args, self.kwargs), _filter)
+        self.vars = vars
+        self.static_vars = static_vars
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        func_internal = self.func(*self.args, **self.kwargs)
+        return func_internal(*args, **kwargs)
+
+    def get_vars(self):
+        return self.vars
+
+    def set_vars(self, vars):
+        self.vars = vars
+        self.args, self.kwargs = eqx.combine(self.vars, self.static_vars)
+
+    def get_func_with_vars(self, vars):
+        args, kwargs = eqx.combine(vars, self.static_vars)
+        return self.func(*args, **kwargs)
 
 
-def _jax2pytensor(
-    jaxfunc,
-    output_shape_def=None,
-    args_for_graph="all",
-    name=None,
-    static_argnames=(),
-    input_dtype=None,
-):
-    """Return a pytensor from a jax jittable function.
+"""
+class _Jax2Pyfunc:
+    def __init__(self, func_gen, name=None, input_dtype=None):
+        self.func_gen = func_gen
+        self.name = name
+        self.input_dtype = input_dtype
 
-    It requires to define the output types of the returned values as pytensor types. A
-    unique name should also be passed in case the name of the jaxfunc is identical to
-    some other node. The design of this function is based on
-    https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        return _WrappedFunc(func, *args, **kwargs)
 
-    Parameters
-    ----------
-    jaxfunc : jax jittable function
-        function for which the node is created, can return multiple tensors as a tuple.
-        It is required that all return values are able to transformed to
-        pytensor.TensorVariable.
-    output_shape_def : function
-        Function that returns the shape of the output. If None, the shape is expected to
-        be the same as the shape of the args_for_graph arguments. If not None, the
-        function should return a tuple of shapes, it will receive as input the shapes of
-        the args_for_graph as tuples. Shapes are defined as tuples of integers or None.
-    args_for_graph : list of str or "all"
-        If "all", all arguments except arguments passed via **kwargs are used for the
-        graph. Otherwise specify a list of argument names to use for the graph.
-    name: str
-        Name of the created pytensor Op, defaults to the name of the passed function.
-        Only used internally in the pytensor graph.
-    input_dtype: pytensor type
-        dtype of the inputs, if None, it is inferred from the input types, by
-        upcasting all inputs. If output_shape_def is not None, the input_dtype also
-        defines the outputs dtype.
+    def func(self, *args, **kwargs):
+        return self.pytensor_func(*args, **kwargs)
 
-    Returns
-    -------
-        A Pytensor Op which can be used in a pm.Model as function, is differentiable
-        and compilable with both JAX and C backend.
+    def wrapped_func(self, *args, **kwargs):
+        return self.jaxfunc(*args, **kwargs)
 
-    """
+    def get_transf
+"""
 
-    ### Construct the function to return that is compatible with pytensor but has the
-    ### same signature as the jax function.
-    def new_func(*args, **kwargs):
-        vars, static_vars = eqx.partition((args, kwargs), _filter)
 
-        nonlocal input_dtype
-        if input_dtype is None:
-            # infer dtype by finding the upcast of all input dtypes. As inputs might be
-            # not numpy or pytensors, we temporarily convert them to pytensor first
-            # to obtain the dtype. We transform all inputs to the same dtype, to
-            # avoid issues if a variable with integer type is given as input, which
-            # leads to error when differentiating the function.
+def jax2pyfunc(func_gen):
+    """Return a pytensor function from a jax jittable function."""
+
+    @ft.wraps(func_gen)
+    def func_gen_wrapper(*args, **kwargs):
+        return _WrappedFunc(func_gen, *args, **kwargs)
+
+    return func_gen_wrapper
+
+
+class _Jax2Pytensor:
+    def __init__(
+        self,
+        jaxfunc,
+        name=None,
+        input_dtype=None,
+    ):
+        self.jaxfunc = jaxfunc
+        self.name = name
+        self.input_dtype = input_dtype
+
+    def __call__(self, *args, **kwargs):
+        """Return a pytensor from a jax jittable function."""
+        ### Construct the function to return that is compatible with pytensor but has
+        ### the same signature as the jax function.
+        vars, static_vars_tmp = eqx.partition((args, kwargs), _filter)
+        func_vars, static_vars = eqx.partition(
+            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc)
+        )
+        vars_from_func = tree_map(lambda x: x.get_vars(), func_vars)
+        vars_all = dict(vars=vars, vars_from_func=vars_from_func)
+
+        def func(vars_all, static_vars):
+            vars, vars_from_func = vars_all["vars"], vars_all["vars_from_func"]
+            func_vars_evaled = tree_map(
+                lambda x, y: x.get_func_with_vars(y), func_vars, vars_from_func
+            )
+            args, kwargs = eqx.combine(vars, static_vars, func_vars_evaled)
+            return self.jaxfunc(*args, **kwargs)
+
+        if self.input_dtype is None:
+            # infer dtype by finding the upcast of all input dtypes. As inputs might
+            # be not numpy or pytensors, we temporarily convert them to pytensor
+            # first to obtain the dtype. We transform all inputs to the same dtype,
+            # to avoid issues if a variable with integer type is given as input,
+            # which leads to error when differentiating the function.
             inputs_list_tmp = tree_map(lambda x: pt.as_tensor_variable(x), vars)
             inputs_flat_tmp, _ = tree_flatten(inputs_list_tmp)
             input_types_flat_tmp = [inp.type for inp in inputs_flat_tmp]
@@ -91,7 +124,9 @@ def _jax2pytensor(
             del inputs_list_tmp, inputs_flat_tmp, input_types_flat_tmp
 
         # Convert our inputs to symbolic variables
-        pt_vars = tree_map(lambda x: pt.as_tensor_variable(x, dtype=input_dtype), vars)
+        pt_vars = tree_map(
+            lambda x: pt.as_tensor_variable(x, dtype=input_dtype), vars_all
+        )
         # inputs_flat, input_treedef = tree_flatten(inputs_list)
         # input_types_flat = [inp.type for inp in inputs_flat]
 
@@ -127,14 +162,14 @@ def _jax2pytensor(
         static_outvars = None
 
         def _jaxfunc_partitioned(vars, static_vars):
-            args, kwargs = eqx.combine(vars, static_vars)
-            out = jaxfunc(*args, **kwargs)
+            # args, kwargs = eqx.combine(vars, static_vars)
+            out = func(vars, static_vars)
             nonlocal static_outvars
             outvars, static_outvars = eqx.partition(
                 out,
                 eqx.is_array,  # lambda x: isinstance(x, jax.Array)
             )
-            # jax.debug.print("static outvars: {}", static_outvars)
+            # print("static outvars: {}", static_outvars)
             # jax.debug.print("outvars: {}", outvars)
             return outvars
 
@@ -154,8 +189,19 @@ def _jax2pytensor(
         )
 
         jaxtypes_outvars = jax.eval_shape(
-            ft.partial(_jaxfunc_partitioned, static_vars=static_vars), dummy_inputs_jax
+            ft.partial(
+                _jaxfunc_partitioned, vars=dummy_inputs_jax, static_vars=static_vars
+            ),
         )
+
+        """
+        # Evaluate shape, could have also used jax.eval_shape or
+        # equinox.filter_eval_shape, for future...
+        _, jaxtypes_outvars = jax.make_jaxpr(
+            ft.partial(_jaxfunc_partitioned, static_vars=static_vars),
+            return_shape=True,
+        )(dummy_inputs_jax)
+        """
 
         # jaxtypes_outvars_flat = (
         #    (jaxtypes_outvars_flat,)
@@ -165,15 +211,16 @@ def _jax2pytensor(
 
         jaxtypes_outvars_flat, outvars_treedef = tree_flatten(jaxtypes_outvars)
 
-        print("jaxtypes_outvars: ", jaxtypes_outvars)
+        # print("jaxtypes_outvars: ", jaxtypes_outvars)
 
         pttypes_outvars = [
             pt.TensorType(dtype=var.dtype, shape=var.shape)
             for var in jaxtypes_outvars_flat
         ]
-        print("pttypes_outvars: ", pttypes_outvars)
+        # print("pttypes_outvars: ", pttypes_outvars)
 
-        ### Create the Pytensor Op, the normal one and the vector-jacobian product (vjp)
+        ### Create the Pytensor Op, the normal one and the vector-jacobian-
+        ### product (vjp)
         # flat_func = _flattened_input_func(
         #     jaxfunc, input_treedef, inputnames_list, other_args_dic
         # )
@@ -194,7 +241,9 @@ def _jax2pytensor(
                 gz = gz[0]
             primals, vjp_fn = jax.vjp(local_op.perform_jax, *y0)
             gz = tree_map(
-                lambda g, primal: jnp.broadcast_to(g, jnp.shape(primal)), gz, primals
+                lambda g, primal: jnp.broadcast_to(g, jnp.shape(primal)),
+                gz,
+                primals,
             )
             if len(y0) == 1:
                 return vjp_fn(gz)[0]
@@ -203,14 +252,13 @@ def _jax2pytensor(
 
         jitted_vjp_sol_op_jax = jax.jit(vjp_sol_op_jax)
 
-        nonlocal name
-        if name is None:
-            name = jaxfunc.__name__
+        if self.name is None:
+            self.name = self.jaxfunc.__name__
 
         # Get classes that creates a Pytensor Op out of our function that accept
         # flattened inputs. They are created each time, to set a custom name for the
         # class.
-        SolOp, VJPSolOp = _return_pytensor_ops_classes(name)
+        SolOp, VJPSolOp = _return_pytensor_ops_classes(self.name)
 
         local_op = SolOp(
             vars_treedef,
@@ -230,17 +278,15 @@ def _jax2pytensor(
             return local_op.vjp_sol_op.perform_jax
 
         ### Evaluate the Pytensor Op and return unflattened results
-        print("pt_vars_flat: ", pt_vars_flat)
+        # print("pt_vars_flat: ", pt_vars_flat)
         output_flat = local_op(*pt_vars_flat)
         if not isinstance(output_flat, Sequence):
             output_flat = [output_flat]  # tree_unflatten expects a sequence.
         outvars = tree_unflatten(outvars_treedef, output_flat)
         output = eqx.combine(outvars, static_outvars)
         # output = outvars
-        print("output: ", output)
+        # print("output: ", output)
         return output
-
-    return new_func
 
 
 def _flattened_input_func(
@@ -276,7 +322,8 @@ def _flattened_input_func(
         inputs_for_graph = tree_unflatten(input_treedef, inputs_list_flat)
         inputs_for_graph = tree_map(lambda x: jnp.array(x), inputs_for_graph)
         inputs_for_graph_dic = {
-            arg: val for arg, val in zip(inputnames_list, inputs_for_graph)
+            arg: val
+            for arg, val in zip(inputnames_list, inputs_for_graph, strict=False)
         }
         results = func(**inputs_for_graph_dic, **other_args_dic)
         if not flatten_output:
@@ -296,54 +343,6 @@ def _normalize_flat_output(output):
         # tuple and list and not pytensor
     else:
         return output[0]
-
-
-def _get_output_shape_from_user(
-    output_shape_def, input_treedef, inputnames_list, input_types_flat
-):
-    """Get the output shapes from the user defined output_shape_def function.
-
-    Returns the output shapes and treedef from the user defined output_shape_def
-    function.
-
-    Parameters
-    ----------
-    output_shape_def : function
-        function that returns the shape of the output.
-    input_treedef : treedef
-        treedef of the inputs, as returned by jax.tree_util.tree_flatten
-    inputnames_list : list of str
-        parameter names of the inputs
-    input_types_flat : list of types
-        types of the inputs
-
-    Returns
-    -------
-    output_shapes_flat : list of tuples
-        list of output shapes
-
-    """
-    # Convert shape tuples to dummy shape objects, such that a tree_map on
-    # such an object doesn't interpret the tuple as part of the tree
-    input_shapes_flat = [_Shape(t.shape) for t in input_types_flat]
-
-    input_shapes_list = tree_unflatten(input_treedef, input_shapes_flat)
-    input_types_dic = {
-        arg: shapes for arg, shapes in zip(inputnames_list, input_shapes_list)
-    }
-    output_shape = output_shape_def(**input_types_dic)
-
-    # For flattening the output shapes, we need to redefine what is a leaf, so
-    # that the shape tuples don't get also flattened.
-    is_leaf = lambda x: isinstance(x, Sequence) and (
-        len(x) == 0 or x[0] is None or isinstance(x[0], int)
-    )
-    output_shapes_flat, output_treedef = tree_flatten(output_shape, is_leaf=is_leaf)
-
-    if len(output_shapes_flat) == 0 or not isinstance(output_shapes_flat[0], Sequence):
-        output_shapes_flat = (output_shapes_flat,)
-
-    return output_shapes_flat, output_treedef
 
 
 def _split_arguments(func_signature, args, kwargs, args_for_graph):
@@ -457,7 +456,7 @@ def _return_pytensor_ops_classes(name):
             self.jitted_vjp_sol_op_jax = jitted_vjp_sol_op_jax
 
         def make_node(self, *inputs):
-            print("make_node inputs: ", inputs)
+            # print("make_node inputs: ", inputs)
 
             self.num_inputs = len(inputs)
 
@@ -470,12 +469,12 @@ def _return_pytensor_ops_classes(name):
                 self.input_types,
                 self.jitted_vjp_sol_op_jax,
             )
-            print("make_node outputs: ", outputs)
+            # print("make_node outputs: ", outputs)
 
             return Apply(self, inputs, outputs)
 
         def perform(self, node, inputs, outputs):
-            print("perform inputs: ", inputs)
+            # print("perform inputs: ", inputs)
             results = self.jitted_sol_op_jax(inputs)
             if self.num_outputs > 1:
                 for i in range(self.num_outputs):
@@ -562,15 +561,40 @@ def _return_pytensor_ops_classes(name):
     return SolOp, VJPSolOp
 
 
-class jax2pytensor:
-    """Return a pytensor from a jax jittable function."""
+def jax2pytensor(*args, **kwargs):
+    """Return a pytensor from a jax jittable function.
 
-    def __init__(self, jaxfunc, *args, **kwargs):
-        self.jaxfunc = jaxfunc
-        self.args = args
-        self.kwargs = kwargs
-        self.pytensor_func = _jax2pytensor(jaxfunc, *args, **kwargs)
+    It requires to define the output types of the returned values as pytensor types. A
+    unique name should also be passed in case the name of the jaxfunc is identical to
+    some other node. The design of this function is based on
+    https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/
 
-    def __call__(self, *args, **kwargs):
-        """Return a pytensor from a jax jittable function."""
-        return self.pytensor_func(*args, **kwargs)
+    Parameters
+    ----------
+    jaxfunc : jax jittable function
+        function for which the node is created, can return multiple tensors as a tuple.
+        It is required that all return values are able to transformed to
+        pytensor.TensorVariable.
+    output_shape_def : function
+        Function that returns the shape of the output. If None, the shape is expected to
+        be the same as the shape of the args_for_graph arguments. If not None, the
+        function should return a tuple of shapes, it will receive as input the shapes of
+        the args_for_graph as tuples. Shapes are defined as tuples of integers or None.
+    args_for_graph : list of str or "all"
+        If "all", all arguments except arguments passed via **kwargs are used for the
+        graph. Otherwise specify a list of argument names to use for the graph.
+    name: str
+        Name of the created pytensor Op, defaults to the name of the passed function.
+        Only used internally in the pytensor graph.
+    input_dtype: pytensor type
+        dtype of the inputs, if None, it is inferred from the input types, by
+        upcasting all inputs. If output_shape_def is not None, the input_dtype also
+        defines the outputs dtype.
+
+    Returns
+    -------
+        A Pytensor Op which can be used in a pm.Model as function, is differentiable
+        and compilable with both JAX and C backend.
+
+    """
+    return _Jax2Pytensor(*args, **kwargs)

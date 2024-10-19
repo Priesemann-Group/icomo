@@ -8,16 +8,16 @@ from . import comp_model, slow_modulation, tools
 from .comp_model import (
     CompModel,
     ODEIntegrator,
-    interpolate_pytensor,
-    interpolation_func,
     erlang_kernel,
     delayed_copy,
     SIR,
     Erlang_SEIRS,
+    interpolate_func,
+    diffeqsolve,
 )
 from .slow_modulation import priors_for_cps, sigmoidal_changepoints
 from .tools import hierarchical_priors
-from .jax2pytensor import jax2pytensor
+from .jax2pytensor import jax2pytensor, jax2pyfunc
 
 
 def _get_version():

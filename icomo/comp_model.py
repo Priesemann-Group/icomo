@@ -8,7 +8,7 @@ import jax
 from jax.tree_util import tree_map
 
 # import jax.numpy as jnp
-from icomo.jax2pytensor import jax2pytensor
+from icomo.jax2pytensor import jax2pyfunc, jax2pytensor
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +324,57 @@ def delayed_copy(initial_var, delayed_vars, tau_delay):
     inflow = initial_var / tau_delay * length
     d_delayed_vars, outflow = erlang_kernel(inflow, delayed_vars[:], 1 / tau_delay)
     return d_delayed_vars
+
+
+@jax2pyfunc
+def interpolate_func(ts_in, values, method="cubic", ret_gradients=False):
+    """
+    Return a diffrax-interpolation function that can be used to interpolate pytensors.
+
+    Parameters
+    ----------
+    ts_in : array-like
+        The timesteps at which the time-dependent variable is given.
+    vales : array-like
+        The time-dependent variable.
+    method : str
+        The interpolation method used. Can be "cubic" or "linear".
+    ret_gradients : bool
+        If True, the function returns the gradient of the interpolation function.
+
+    Returns
+    -------
+    interp : Callable
+        The interpolation function. Call `interp(t)` to evaluate the
+        interpolated variable at time `t`. t can be a float or an array-like.
+
+    """
+    ts_in = jax.numpy.array(ts_in)
+    if method == "cubic":
+        coeffs = diffrax.backward_hermite_coefficients(ts_in, values)
+        interp = diffrax.CubicInterpolation(ts_in, coeffs)
+    elif method == "linear":
+        interp = diffrax.LinearInterpolation(ts_in, values)
+    else:
+        raise RuntimeError(
+            f'Interpolation method {method} not known, possibilities are "cubic" or '
+            f'"linear"'
+        )
+    if ret_gradients:
+        # return jax.vmap(interp.derivative, 0, 0)
+        return interp.derivative
+    else:
+        # return jax.vmap(interp.evaluate, 0, 0)
+        return interp.evaluate
+
+
+@jax2pytensor
+def diffeqsolve(*args, **kwargs):
+    """Solve a system of differential equations.
+
+    See diffrax.diffeqsolve for more details.
+    """
+    return diffrax.diffeqsolve(*args, **kwargs)
 
 
 class ODEIntegrator:
