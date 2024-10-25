@@ -4,14 +4,11 @@
 
 from importlib import metadata as importlib_metadata
 
-from . import comp_model, slow_modulation, tools
-from .comp_model import (
-    CompModel,
+from . import compt_model, slow_modulation, tools
+from .compt_model import (
+    ComptModel,
     ODEIntegrator,
     erlang_kernel,
-    delayed_copy,
-    SIR,
-    Erlang_SEIRS,
     interpolate_func,
     diffeqsolve,
 )

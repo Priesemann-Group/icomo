@@ -1,265 +1,125 @@
 """Tools to create compartmental models and ODE systems to use with pymc."""
 
+import inspect
 import logging
 
 import diffrax
 import graphviz
 import jax
+import jax.numpy as jnp
 from jax.tree_util import tree_map
 
 # import jax.numpy as jnp
-from icomo.jax2pytensor import jax2pyfunc, jax2pytensor
+from icomo.jax2pytensor import jax2pytensor
 
 logger = logging.getLogger(__name__)
 
 
-def SIR(t, y, args):
-    """
-    Differential equations of an SIR model.
-
-    Parameters
-    ----------
-    t: float
-        time variable
-    y: dict
-        dictionary of compartments. Has to include keys "S", "I", "R". The value of "S"
-        is the number of susceptible individuals, "I" is the number of infected
-        individuals and "R" is the number of recovered individuals.
-    args: tuple
-        tuple of arguments. The first argument is the function β(t) that describes the
-        infection rate. The second argument is a dictionary of constant arguments. It
-        has to include the key "gamma" which is the recovery rate and the key "N" which
-        is the total population size.
-
-    Returns
-    -------
-    dy: dict
-        dictionary of derivatives with keys "S", "I", "R".
-
-    """
-    β, const_arg = args
-    γ = const_arg["gamma"]
-    N = const_arg["N"]
-    dS = -β(t) * y["I"] * y["S"] / N
-    dI = β(t) * y["I"] * y["S"] / N - γ * y["I"]
-    dR = γ * y["I"]
-    dy = {"S": dS, "I": dI, "R": dR}
-    return dy
-
-
-def Erlang_SEIRS(t, y, args):
-    """Return the derivatives of the Erlang SEIRS model.
-
-    This function defines the differential equations of an SEIRS model with Erlang
-    distributed latent, infectious and recovering (recovered-to-susceptible) periods.
-
-    Parameters
-    ----------
-    t: float
-        time variable
-    y: dict
-        dictionary of compartments. Has to include keys "S", "Es", "Is", "Rs". The value
-        of "Es", "Is", "Rs" have to be a list of length `n` where `n` is the number of
-        compartments/shape of the Erlang distribution/kernel.
-    args: tuple: (callable, dict)
-        Callable is a function with argument t that returns the value of the
-        transmission rate beta(t) dict is the constant arguments of the model. Has to
-        include keys "N", "rate_latent", "rate_infectious" and "rate_recovery".
-
-    Returns
-    -------
-    dComp: dict
-        Same as y, but with the derivatives of the compartments.
-    """
-    beta, const_arg = args
-    N = const_arg["N"]
-    dComp = {}
-
-    I = sum(y["Is"])
-    dComp["S"] = -beta(t) * I * y["S"] / N
-
-    # Latent period
-    dEs, outflow = erlang_kernel(
-        inflow=beta(t) * I * y["S"] / N,
-        Vars=y["Es"],
-        rate=const_arg["rate_latent"],
-    )
-    dComp["Es"] = dEs
-
-    # Infectious period
-    dIs, outflow = erlang_kernel(
-        inflow=outflow,
-        Vars=y["Is"],
-        rate=const_arg["rate_infectious"],
-    )
-    dComp["Is"] = dIs
-
-    # Recovered/non-susceptible period
-    dRs, outflow = erlang_kernel(
-        inflow=outflow,
-        Vars=y["Rs"],
-        rate=const_arg["rate_recovery"],
-    )
-    dComp["Rs"] = dRs
-
-    dComp["S"] = dComp["S"] + outflow
-
-    return dComp
-
-
-def erlang_kernel(inflow, Vars, rate):
-    """Model the compartments delayed by an Erlang kernel.
+def erlang_kernel(compt, rate, inflow=0):
+    r"""Model the compartments delayed by an Erlang kernel.
 
     Utility function to model an Erlang kernel for a compartmental model. The shape is
-    determined by the length of Vars.
+    determined by the length of the last dimension of compt. For example, if compt C
+    is an array of shape (...,3), the function implements the following system of ODEs:
+
+    .. math::
+       \begin{align*}
+       \mathrm{rate\_indiv} &= 3 \cdot \mathrm{rate},&\\
+        \frac{\mathrm dC^{(1)}(t)}{\mathrm dt} &= \mathrm{inflow} &-\mathrm{
+        rate\_indiv}
+        \cdot
+            C^{(1)},\\
+        \frac{\mathrm dC^{(2)}(t)}{\mathrm dt} &= \mathrm{rate\_indiv}  \cdot
+            C^{(1)} &-\mathrm{rate\_indiv}  \cdot C^{(2)},\\
+        \frac{\mathrm dC^{(3)}(t)}{\mathrm dt} &= \mathrm{rate\_indiv}  \cdot
+            C^{(2)} &-\mathrm{rate\_indiv}  \cdot C^{(3)},\\
+        \mathrm{outflow} &= \mathrm{rate\_indiv}  \cdot C^{(3)}
+       \end{align*}
+    ..
 
     Parameters
     ----------
-    inflow: float or ndarray
-        The inflow into the first compartment of the kernel
-    Vars: list of floats or list of ndarrays
-        The compartments of the kernel
+    compt: jnp.ndarray of shape (..., n)
+        The compartment on which the Erlang kernel is applied. The last dimension n is
+        the length of the kernel.
     rate: float or ndarray
         The rate of the kernel, 1/rate is the mean time spent in total in all
         compartments
 
     Returns
     -------
-    dVars: list of floats or list of ndarrays
-        The derivatives of the compartments
-    out_flow: float or ndarray
+    d_compt: jnp.ndarray of shape (..., n)
+        The derivatives erlangerlangof the compartments
+    outflow: float or ndarray
         The outflow from the last compartment
     """
-    dVars = []
-    m = len(Vars)
-    for i, Var_i in enumerate(Vars):
-        dVars.append(-m * rate * Var_i)
-        if i == 0:
-            dVars[0] = dVars[0] + inflow
-        else:
-            dVars[i] = dVars[i] + m * rate * Vars[i - 1]
-    out_flow = m * rate * Vars[-1]
-    return dVars, out_flow
+    length = jnp.shape(compt)[-1]
+    d_compt = jnp.zeros_like(compt)
+    rate_indiv = rate * length
+    d_compt = d_compt.at[..., 0].add(inflow - rate_indiv * compt[..., 0])
+    d_compt = d_compt.at[..., 1:].add(
+        -rate_indiv * compt[..., 1:] + rate_indiv * compt[..., :-1]
+    )
+
+    outflow = rate_indiv * compt[..., -1]
+
+    return d_compt, outflow
 
 
-class CompModel:
+class ComptModel:
     """Class to help building a compartmental model.
 
     The model is built by adding flows between compartments. The model is then compiled
     into a function that can be used in an ODE.
     """
 
-    def __init__(self, Comp_dict):
-        """Initialize the CompModel class.
+    def __init__(self, y_dict=None):
+        """Initialize the ComptModel class.
 
         Parameters
         ----------
-        Comp_dict: dict
+        y_dict: dict
             Dictionary of compartments. Keys are the names of the compartments and
             values are floats or ndarrays that represent their value.
         """
-        self.Comp = Comp_dict
-        self.dComp = {}
-        self.graph = graphviz.Digraph("comp_model")
-        for key in self.Comp.keys():
+        if y_dict is None:
+            y_dict = {}
+        self.y = y_dict
+        self._init_graph()
+
+    def _init_graph(self):
+        self.graph = graphviz.Digraph("CompModel")
+        for key in self.y.keys():
             self.graph.node(key)
         self.graph.attr(rankdir="LR")
 
-    def flow(self, start_comp, end_comp, rate, label=None, end_comp_is_list=False):
-        """
-        Add a flow from start_comp to end_comp with rate flow.
-
-        Parameters
-        ----------
-        start_comp: str or list
-            Key of the start compartment. Can also be a list of keys in which case an
-            identical flow is added from each compartment of the list to end_com
-        end_comp: str
-            Key of the end compartment
-        rate: float or ndarray
-            rate of the flow to add between compartments, is multiplied by start_comp,
-            so it should be broadcastable whith it.
-        label: str, optional
-            label of the edge between the compartments that will be used when displaying
-            a graph of the compartmental model.
-        end_comp_is_list: bool, default: False
-            If True, end_comp points to a list of compartments, and the outflow is
-            added to the first of them. This is typically the case when the end
-            compartment is used with a Erlang kernel.
+    @property
+    def y(self):
+        """Returns the compartments of the model.
 
         Returns
         -------
-        None
+        y: dict
+            Dictionary of compartments. Keys are the names of the compartments and
+            values are floats or ndarrays that represent their value.
         """
-        if isinstance(start_comp, str):
-            start_comp_list = [start_comp]
-        else:
-            start_comp_list = start_comp
-        for start_comp in start_comp_list:
-            self._add_dy_to_comp(start_comp, -rate * self.Comp[start_comp])
-            self._add_dy_to_comp(
-                end_comp, rate * self.Comp[start_comp], end_comp_is_list
-            )
+        return self._y
 
-            self.graph.edge(start_comp, end_comp, label=label)
+    @y.setter
+    def y(self, y_dict):
+        """Set the compartments of the model.
 
-    def erlang_flow(
-        self, start_comp, end_comp, rate, label=None, end_comp_is_list=False
-    ):
-        """
-        Add a flow with erlang kernel from start_comp to end_comp with rate flow.
+        Also resets the derivatives of the compartments to zero.
 
         Parameters
         ----------
-        start_comp: str
-            start compartments of the flow. The length the list is the shape of the
-            Erlang kernel.
-        end_comp: str
-            end compartment of the flow
-        rate: float or ndarray
-            rate of the flow, equal to the inverse of the mean time spent in the Erlang
-            kernel.
-        label: str, optional
-            label of the edge between the compartments that will be used when displaying
-            a graph of the compartmental model.
-        end_comp_is_list: bool, default: False
-            If True, end_comp points to a list of compartments, and the outflow is added
-            to the first of them. This is typically the case when the end compartment is
-            used with a Erlang kernel.
+        y_dict: dict
+            Dictionary of compartments. Keys are the names of the compartments and
+            values are floats or ndarrays that represent their value.
         """
-        if not (
-            isinstance(self.Comp[start_comp], list)
-            or isinstance(self.Comp[start_comp], tuple)
-        ):
-            raise RuntimeError(
-                "start_comp should refer to a list of compartments to allow"
-                "the modelling of an erlang kernel across those compartments"
-            )
-
-        dy, outflow = erlang_kernel(inflow=0, Vars=self.Comp[start_comp], rate=rate)
-        self._add_dy_to_comp(start_comp, dy, comp_is_list=True)
-        self._add_dy_to_comp(end_comp, outflow, comp_is_list=end_comp_is_list)
-
-        self.graph.edge(start_comp, end_comp, label=label)
-
-    def _add_dy_to_comp(self, comp_key, dy, comp_is_list=False):
-        if not comp_is_list:
-            if comp_key not in self.dComp.keys():
-                self.dComp[comp_key] = 0
-            self.dComp[comp_key] = self.dComp[comp_key] + dy
-        else:
-            if comp_key not in self.dComp.keys():
-                self.dComp[comp_key] = [0 for _ in self.Comp[comp_key]]
-            if isinstance(dy, list):
-                if not len(dy) == len(self.Comp[comp_key]):
-                    raise RuntimeError(
-                        "dy should have the same length as the compartment"
-                    )
-                for i, _ in enumerate(self.Comp[comp_key]):
-                    self.dComp[comp_key][i] = self.dComp[comp_key][i] + dy[i]
-            else:
-                # Add only to first comp
-                self.dComp[comp_key][0] = self.dComp[comp_key][0] + dy
+        self._y = y_dict
+        self._dy = jax.tree_util.tree_map(lambda x: jnp.zeros_like(x), self.y)
+        self._init_graph()
 
     @property
     def dy(self):
@@ -271,21 +131,117 @@ class CompModel:
         -------
         dComp: dict
         """
-        return self.dComp
+        return self._dy
+
+    def flow(self, start_compt, end_compt, rate, label=None, end_compt_is_erlang=False):
+        """
+        Add a flow from start_comp to end_comp with rate flow.
+
+        Parameters
+        ----------
+        start_compt: str or list
+            Key of the start compartment.
+        end_compt: str
+            Key of the end compartment
+        rate: float or ndarray
+            rate of the flow to add between compartments, is multiplied by start_comp,
+            so it should be broadcastable whith it.
+        label: str, optional
+            label of the edge between the compartments that will be used when displaying
+            a graph of the compartmental model.
+        end_compt_is_erlang: bool, default: False
+            If True, end_compt points to a compartment with an Erlang distributed
+            dwelling time, i.e., as the last dimension of the compartment is used
+            for the Erlang distribution modeling. The flow is then only added to the
+            first element of the last dimension, i.e. to self.y[end_compt][...,0].
+
+        Returns
+        -------
+        None
+        """
+        self.add_deriv(start_compt, -rate * nested_indexing(self.y, start_compt))
+        self.add_deriv(
+            end_compt, rate * nested_indexing(self.y, start_compt), end_compt_is_erlang
+        )
+
+        self.graph.edge(start_compt, end_compt, label=label)
+
+    def erlang_flow(
+        self, start_compt, end_compt, rate, label=None, end_compt_is_erlang=False
+    ):
+        """Add a flow with erlang kernel from start_comp to end_comp with rate flow.
+
+        Parameters
+        ----------
+        start_comp: str
+            start compartments of the flow. The length of last dimension the list is
+            the shape of the
+            Erlang kernel.
+        end_comp: str
+            end compartment of the flow
+        rate: float or ndarray
+            rate of the flow, equal to the inverse of the mean time spent in the Erlang
+            kernel.
+        label: str, optional
+            label of the edge between the compartments that will be used when displaying
+            a graph of the compartmental model.
+        end_compt_is_erlang: bool, default: False
+            If True, end_compt points to a compartment with an Erlang distributed
+            dwelling time, i.e., as the last dimension of the compartment is used
+            for the Erlang distribution modeling. The flow is then only added to the
+            first element of the last dimension, i.e. to self.y[end_compt][...,0].
+        """
+        d_compt, outflow = erlang_kernel(
+            compt=nested_indexing(self.y, start_compt), rate=rate
+        )
+        self.add_deriv(start_compt, d_compt)
+        self.add_deriv(end_compt, outflow, end_compt_is_erlang)
+
+        self.graph.edge(start_compt, end_compt, label=label)
+
+    def delayed_copy(self, compt_to_copy, delayed_compt, tau_delay):
+        """Add a delayed copy of a compartment."""
+        d_delayed_compt = delayed_copy_kernel(
+            initial_compt=nested_indexing(self.y, compt_to_copy),
+            delayed_compt=nested_indexing(self.y, delayed_compt),
+            tau_delay=tau_delay,
+        )
+        self.add_deriv(delayed_compt, d_delayed_compt)
+
+    def add_deriv(self, y_key, additive_dy, end_compt_is_erlang=False):
+        """Add a derivative to a compartment.
+
+        Add a derivative to a compartment. This is useful if the derivative is not
+        directly modelled by a flow between compartments.
+
+        Parameters
+        ----------
+        y_key: str
+            Key of the compartment
+        additive_dy: float or ndarray
+            Derivative to add to the compartment
+        comp_is_list: bool, default: False
+
+        """
+        nested_indexing(
+            tree=self.dy,
+            indices=y_key,
+            add=additive_dy,
+            at=(Ellipsis, 0) if end_compt_is_erlang else None,
+        )
 
     def view_graph(self, on_display=True):
         """Display a graph of the compartmental model.
+
+        Requires Graphviz (a non-python software) to be installed
+        (https://www.graphviz.org/). It is also available in the conda-forge channel.
+        See https://github.com/xflr6/graphviz?tab=readme-ov-file#installation.
 
         Parameters
         ----------
         on_display : bool
             If True, the graph is displayed in the notebook, otherwise it is saved as a
             pdf in the current folder and opened with the default pdf viewer.
-
-        Returns
-        -------
-        None
-
         """
         if on_display:
             try:
@@ -298,19 +254,52 @@ class CompModel:
             self.graph.view()
 
 
-def delayed_copy(initial_var, delayed_vars, tau_delay):
-    """Return the derivative to model the delayed copy of a compartment.
-
-    The delay has the form of an Erlang kernel with shape parameter len(delayed_vars).
+def nested_indexing(tree, indices, add=None, at=None):
+    """Return the element of a nested structure of lists or tuples.
 
     Parameters
     ----------
-    initial_var : float or ndarray
+    tree : list or dict
+        The nested structure of lists or tuples.
+    indices : str | int or list of int | str
+        The indices of the element to return.
+
+    Returns
+    -------
+    element : object
+        The element of the nested structure of lists or tuples.
+
+    """
+    element = tree
+    if not isinstance(indices, tuple | list):
+        indices = [indices]
+    for depth, index in enumerate(indices):
+        if not depth == len(indices) - 1:
+            element = element[index]
+        else:
+            if add is None:
+                return element[index]
+            else:
+                if at is not None:
+                    element[index] = element[index].at[at].add(add)
+                else:
+                    element[index] = element[index] + add
+
+
+def delayed_copy_kernel(initial_compt, delayed_compt, tau_delay):
+    """Return the derivative to model the delayed copy of a compartment.
+
+    The delay has the form of an Erlang kernel with shape parameter
+    delayed_compt.shape[-1].
+
+    Parameters
+    ----------
+    initial_compt : jnp.ndarray, shape: (...)
         The compartment that is copied
-    delayed_vars : list of floats or list of ndarrays
-        List of compartments that are delayed copies of initial_var, the last element
-        is the compartment which has the same total content as initial_var over time,
-        but is delayed by tau_delay.
+    delayed_compt : jnp.ndarray, shape (..., n)
+        Compartment that is a delayed copies of initial_var, the last element of the
+        last dimension is the compartment which has the same total content as
+        initial_compt over time, but is delayed by tau_delay.
     tau_delay : float or ndarray
         The mean delay of the copy.
 
@@ -320,13 +309,12 @@ def delayed_copy(initial_var, delayed_vars, tau_delay):
         The derivatives of the delayed compartments
 
     """
-    length = len(delayed_vars)
-    inflow = initial_var / tau_delay * length
-    d_delayed_vars, outflow = erlang_kernel(inflow, delayed_vars[:], 1 / tau_delay)
+    length = jnp.shape(delayed_compt)[-1]
+    inflow = initial_compt / tau_delay * length
+    d_delayed_vars, outflow = erlang_kernel(inflow, delayed_compt[:], 1 / tau_delay)
     return d_delayed_vars
 
 
-@jax2pyfunc
 def interpolate_func(ts_in, values, method="cubic", ret_gradients=False):
     """
     Return a diffrax-interpolation function that can be used to interpolate pytensors.
@@ -368,12 +356,99 @@ def interpolate_func(ts_in, values, method="cubic", ret_gradients=False):
         return interp.evaluate
 
 
-@jax2pytensor
-def diffeqsolve(*args, **kwargs):
-    """Solve a system of differential equations.
+def diffeqsolve(*args, ts_out=None, ODE=None, fixed_step_size=None, **kwargs):
+    """Solves a system of differential equations.
 
-    See diffrax.diffeqsolve for more details.
+    Wrapper of `diffrax.diffeqsolve`.
+    It accepts the same parameters as `diffrax.diffeqsolve`. Additionally,
+    for convenience, it allows the specification of the output timesteps `ts_out` and
+    the system of differential equations `ODE` as keyword arguments. For a simple ODE,
+    use the following keyword arguments:
+
+    Parameters
+    ----------
+    ts_out : array-like
+        The timesteps at which the output is returned. Same as
+        icomo.diffeqsolve(..., saveat=diffrax.SaveAt(ts=ts_out)). It sets additionally
+        the initial time `t0`, the final time `t1` and the time step `dt0` of the solver
+        if not specified separately.
+    ODE : function(t, y, args)
+        The function that returns the derivatives of the variables of the system of
+        differential equations. Same as
+        icomo.diffeqsolve(..., terms=diffrax.ODETerm(ODE)).
+    y0 : PyTree of array-likes
+        The initial values of the variables of the system of differential equations.
+    args : PyTree of array-likes or Callable
+        The arguments of the system of differential equations. Passed as the third
+        argument to the ODE function.
+
+    Returns
+    -------
+    sol : diffrax.Solution
+        The solution of the system of differential equations. sol.ys contains the
+        variables of the system of differential equations at the output timesteps.
+
     """
+    signature = inspect.signature(diffrax.diffeqsolve)
+    signature_bound = signature.bind_partial(*args, **kwargs)
+
+    if fixed_step_size is not None:
+        if "stepsize_controller" in signature_bound.arguments:
+            raise TypeError(
+                "Don't simultaneously specify `icomo.diffeqsolve(..., "
+                "fixed_step_size=True, "
+                "stepsize_controller=...)`"
+            )
+        kwargs["stepsize_controller"] = diffrax.ConstantStepSize()
+
+    if ts_out is not None:
+        if "saveat" in signature_bound.arguments:
+            raise TypeError(
+                "Don't simultaneously specify `icomo.diffeqsolve(..., "
+                "ts_out=..., saveat=...)`"
+            )
+        kwargs["saveat"] = diffrax.SaveAt(ts=ts_out)
+        if "t0" not in signature_bound.arguments:
+            kwargs["t0"] = ts_out[0]
+        if "t1" not in signature_bound.arguments:
+            kwargs["t1"] = ts_out[-1]
+        if "dt0" not in signature_bound.arguments:
+            kwargs["dt0"] = ts_out[1] - ts_out[0]
+    else:
+        if "t0" not in signature_bound.arguments:
+            raise TypeError(
+                "Specify `icomo.diffeqsolve(..., t0=...)` and/or "
+                "`icomo.diffeqsolve(..., ts_out=...)`"
+            )
+        if "t1" not in signature_bound.arguments:
+            raise TypeError(
+                "Specify `icomo.diffeqsolve(..., t1=...)` and/or "
+                "`icomo.diffeqsolve(..., ts_out=...)`"
+            )
+        if "dt0" not in signature_bound.arguments:
+            raise TypeError(
+                "Specify `icomo.diffeqsolve(..., dt0=...)` and/or "
+                "`icomo.diffeqsolve(..., ts_out=...)`, or "
+                "`icomo.diffeqsolve(..., ts_solver=...)`"
+            )
+
+    if ODE is not None:
+        if "terms" in signature_bound.arguments:
+            raise TypeError(
+                "Don't simultaneously specify `icomo.diffeqsolve(..., "
+                "ODE=..., terms=...)`"
+            )
+        kwargs["terms"] = diffrax.ODETerm(ODE)
+    else:
+        if "terms" not in signature_bound.arguments:
+            raise TypeError(
+                "Specify either `icomo.diffeqsolve(..., ODE=...)` or "
+                "`icomo.diffeqsolve(..., terms=...)`"
+            )
+
+    if "solver" not in signature_bound.arguments:
+        kwargs["solver"] = diffrax.Tsit5()
+
     return diffrax.diffeqsolve(*args, **kwargs)
 
 

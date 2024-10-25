@@ -214,6 +214,7 @@ def test_models():
 
         pm.Normal("obs", out_x[0], observed=2)
 
+    # Test nested functions
     with pm.Model() as model15:
         x = pm.Normal("input", size=3)
         y = pm.Normal("input2", size=3)

@@ -83,7 +83,7 @@ test-latest:
 .PHONY:docs-build
 docs-build:
 	sphinx-apidoc -o docs/_build ${PACKAGE_PATH}
-	$(SPHINXBUILD) "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(SPHINXBUILD) "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) -P
 
 .PHONY: docs-preview
 docs-preview: docs-build

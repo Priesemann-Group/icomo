@@ -59,6 +59,7 @@ autodoc_mock_imports = [
     "jax.numpy",
     "diffrax",
     "pytensor",
+    "equinox",
 ]
 
 nbsphinx_allow_errors = True
