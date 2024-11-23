@@ -4,9 +4,9 @@
 
 from importlib import metadata as importlib_metadata
 
-from . import compt_model, slow_modulation, tools
-from .compt_model import (
-    ComptModel,
+from . import comp_model, slow_modulation, tools
+from .comp_model import (
+    CompModel,
     ODEIntegrator,
     erlang_kernel,
     interpolate_func,

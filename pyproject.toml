@@ -31,6 +31,7 @@ dependencies = [
     "jaxopt",
     "equinox",
     "jax!=0.4.34",
+    "jaxtyping",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +47,7 @@ dev = [
     "myst-parser >= 0.19.2",
     "nbsphinx >= 0.9.2",
     "pandoc >= 2.3",
+    "pytest-beartype"
 ]
 
 [project.urls]
@@ -59,6 +61,7 @@ Changelog = "https://github.com/Priesemann-Group/icomo/releases"
 testpaths = [
     "tests",
 ]
+beartype_packages = 'icomo'
 
 
 [tool.ruff.lint]

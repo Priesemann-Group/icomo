@@ -123,7 +123,7 @@ class _Jax2Pytensor:
             )
             del inputs_list_tmp, inputs_flat_tmp, input_types_flat_tmp
 
-        # Convert our inputs to symbolic variables
+        # Convert our inputs to symbolic variables [TODO: check if this is necessary]
         pt_vars = tree_map(
             lambda x: pt.as_tensor_variable(x, dtype=input_dtype), vars_all
         )

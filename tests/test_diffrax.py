@@ -1,5 +1,4 @@
 import diffrax
-import jax
 import jax.numpy as jnp
 import numpy as np
 import pymc as pm
@@ -71,7 +70,7 @@ def ode_models():
             end_comp="Es",
             rate=y["I"] / args["N"] * beta_t_func(t),
             label="beta(t) * I/N",  # label of the graph edge
-            end_comp_is_list=True,
+            end_comp_is_erlang=True,
         )  # One has to specify that "Es" refers to
         # a list of compartments
         comp_model.erlang_flow(
@@ -93,7 +92,7 @@ def ode_models():
         beta0 = R0 / duration_infectious
 
         beta_t = pm.Normal("beta_t", mu=beta0, sigma=0.1, shape=len(t_out))
-        beta_t_func = interpolate_func(ts_in=t_out, values=beta_t)
+        beta_t_func = icomo.jax2pytensor(interpolate_func)(ts_in=t_out, values=beta_t)
         args = {
             "beta_t_func": beta_t_func,
             "N": N,
@@ -102,14 +101,14 @@ def ode_models():
         }
 
         y0 = {
-            "Es": [100, 100, 100],
+            "Es": np.array([100, 100, 100]),
             "I": pm.Normal("I0", mu=10, sigma=1),
             "R": 0,
         }
-        y0["S"] = N - jax.tree_util.tree_reduce(lambda x, y: x + y, y0)
+        # y0["S"] = N - jax.tree_util.tree_reduce(lambda x, y: x + y, y0)
         y0["S"] = N - y0["R"] - np.sum(y0["Es"])
 
-        solution = icomo.diffeqsolve(
+        solution = icomo.jax2pytensor(icomo.diffeqsolve)(
             diffrax.ODETerm(Erlang_SEIR_v2),
             saveat=diffrax.SaveAt(ts=t_out),
             t0=min(t_out),
@@ -120,6 +119,8 @@ def ode_models():
             solver=diffrax.Tsit5(),
         )
         pm.Normal("obs", solution.ys["I"], observed=3 * np.ones(num_points))
+        beta_t_interp = icomo.jax2pytensor(lambda f, x: f(x))(beta_t_func, t_out)
+        pm.Deterministic("beta_t_interp", beta_t_interp)
 
     return (
         model1,
