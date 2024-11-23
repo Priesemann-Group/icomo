@@ -1,6 +1,5 @@
 <div align="center">
-<img src="https://raw.githubusercontent.
-com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png" alt="logo"></img>
+<img src="https://raw.githubusercontent.com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png" width="550" alt="logo"></img>
 </div>
 
 # Inference of Compartmental Models (ICoMo) Toolbox
