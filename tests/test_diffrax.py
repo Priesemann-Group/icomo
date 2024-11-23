@@ -1,4 +1,5 @@
 import diffrax
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pymc as pm
@@ -148,7 +149,6 @@ def test_jax_compilation(ode_models):
         dlogp_fn(ip)
 
 
-"""
 def test_jax_without_jit(ode_models):
     with jax.disable_jit():
         for i, model in enumerate(ode_models):
@@ -159,4 +159,3 @@ def test_jax_without_jit(ode_models):
             logp_fn(ip)
             dlogp_fn = model.compile_fn(model.dlogp(), mode="JAX")
             dlogp_fn(ip)
-"""

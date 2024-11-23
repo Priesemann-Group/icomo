@@ -4,16 +4,14 @@
 
 from importlib import metadata as importlib_metadata
 
-from . import comp_model, slow_modulation, tools
+from . import comp_model
 from .comp_model import (
     CompModel,
-    ODEIntegrator,
     erlang_kernel,
-    interpolate_func,
-    diffeqsolve,
 )
-from .slow_modulation import priors_for_cps, sigmoidal_changepoints
-from .tools import hierarchical_priors
+
+from .diffrax_wrapper import diffeqsolve, interpolate_func
+
 from .jax2pytensor import jax2pytensor, jax2pyfunc
 
 
