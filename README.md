@@ -1,3 +1,8 @@
+<div align="center">
+<img src="https://raw.githubusercontent.
+com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png" alt="logo"></img>
+</div>
+
 # Inference of Compartmental Models (ICoMo) Toolbox
 
 This toolbox aims to simplify the construction of compartmental models and the inference of their parameters.
@@ -18,6 +23,10 @@ compartmental models.
 * Plot the graph of the compartmental model to verify the correctness of the model.
 * Integrate the ODEs using diffrax, automatically generating the Jacobian of the parameters of the ODE
 * Fit the parameters using minimization algorithms or build a Bayesian model using PyMC.
+
+### Credits
+
+Logo by [Fabian Mikulasch](https://scholar.google.com/citations?user=ZWWBIoUAAAAJ&hl=en)
 
 
 
