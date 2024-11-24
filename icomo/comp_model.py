@@ -2,12 +2,13 @@
 
 import logging
 from collections.abc import Sequence
-from types import EllipsisType
 
 import graphviz
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, PyTree
+
+from .tree_tools import nested_indexing, walk_tree
 
 # import jax.numpy as jnp
 
@@ -90,13 +91,6 @@ class CompModel:
         if y_dict is None:
             y_dict = {}
         self.y = y_dict
-        self._init_graph()
-
-    def _init_graph(self):
-        self.graph = graphviz.Digraph("CompModel")
-        for key in self.y.keys():
-            self.graph.node(key)
-        self.graph.attr(rankdir="LR")
 
     @property
     def y(self) -> PyTree[Array]:
@@ -109,6 +103,11 @@ class CompModel:
             values are floats or ndarrays that represent their value.
         """
         return self._y
+
+    @property
+    def edges(self):
+        """Get the flow labels of the compartmental model."""
+        return self._edges
 
     @y.setter
     def y(self, y_dict: PyTree[ArrayLike]) -> None:
@@ -124,7 +123,7 @@ class CompModel:
         """
         self._y = jax.tree_util.tree_map(lambda x: jnp.array(x), y_dict)
         self._dy = jax.tree_util.tree_map(lambda x: jnp.zeros_like(x), self.y)
-        self._init_graph()
+        self._edges = jax.tree_util.tree_map(lambda _: [], y_dict)
 
     @property
     def dy(self):
@@ -176,7 +175,8 @@ class CompModel:
             end_comp, rate * nested_indexing(self.y, start_comp), end_comp_is_erlang
         )
 
-        self.graph.edge(start_comp, end_comp, label=label)
+        edges_list = nested_indexing(self.edges, start_comp)
+        edges_list.append((end_comp, label))
 
     def erlang_flow(
         self,
@@ -214,7 +214,8 @@ class CompModel:
         self.add_deriv(start_comp, d_comp)
         self.add_deriv(end_comp, outflow, end_comp_is_erlang)
 
-        self.graph.edge(start_comp, end_comp, label=label)
+        edges_list = nested_indexing(self.edges, start_comp)
+        edges_list.append((end_comp, label))
 
     def delayed_copy(
         self,
@@ -270,56 +271,28 @@ class CompModel:
             If True, the graph is displayed in the notebook, otherwise it is saved as a
             pdf in the current folder and opened with the default pdf viewer.
         """
+        graph = graphviz.Digraph("CompModel")
+        graph.attr(rankdir="LR")
+
+        for indices, _ in walk_tree(self.y):
+            name_node = str(indices)[1:-1]
+            graph.node(name_node)
+        for indices, _ in walk_tree(self.y):
+            name_startnode = str(indices)[1:-1]
+            for edge in nested_indexing(self.edges, indices):
+                endnode = edge[0] if isinstance(edge[0], list | tuple) else [edge[0]]
+                name_endnode = str(endnode)[1:-1]
+                graph.edge(name_startnode, name_endnode, label=edge[1])
+
         if on_display:
             try:
                 from IPython.display import display
 
-                display(self.graph)
+                display(graph)
             except Exception:
-                self.graph.view()
+                graph.view()
         else:
-            self.graph.view()
-
-
-def nested_indexing(
-    tree: PyTree,
-    indices: str | int | Sequence[str | int],
-    add: ArrayLike | None = None,
-    at: int | EllipsisType | slice | None | Sequence[EllipsisType | slice | int] = None,
-):
-    """Return the element of a nested structure of lists or tuples.
-
-    Parameters
-    ----------
-    tree :
-        The nested structure of lists or tuples.
-    indices :
-        The indices of the element to return.
-    add : optional
-        The element to add to the nested structure of lists or tuples.
-    at : optional
-        Specifies the position where to add the element.
-
-    Returns
-    -------
-    element : object
-        The element of the nested structure of lists or tuples.
-
-    """
-    element = tree
-    if not isinstance(indices, tuple | list):
-        indices = [indices]
-    for depth, index in enumerate(indices):
-        if not depth == len(indices) - 1:
-            element = element[index]
-        else:
-            if add is None:
-                return element[index]
-            else:
-                if at is not None:
-                    element[index] = element[index].at[at].add(add)
-                else:
-                    element[index] = element[index] + add
+            graph.view()
 
 
 def delayed_copy_kernel(

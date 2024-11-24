@@ -1,3 +1,5 @@
+"""Tests for the diffrax wrapper."""
+
 import diffrax
 import jax
 import jax.numpy as jnp

@@ -1,6 +1,4 @@
-"""
-Tests for jax2pytensor package.
-"""
+"""Tests for jax2pytensor package."""
 
 import jax
 import jax.numpy as jnp

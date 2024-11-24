@@ -14,6 +14,8 @@ from .diffrax_wrapper import diffeqsolve, interpolate_func
 
 from .jax2pytensor import jax2pytensor, jax2pyfunc
 
+from . import experimental
+
 
 def _get_version():
     try:

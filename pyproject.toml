@@ -89,7 +89,6 @@ select = [
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
-
 [tool.setuptools]
 packages = ["icomo"]
 
