@@ -1,7 +1,9 @@
-<div align="center">
-<img src="https://raw.githubusercontent.com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png" width="550" alt="logo"></img>
-</div>
-
+```{image} https://raw.githubusercontent.com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png
+:alt: My Logo
+:class: logo, mainlogo, dark-light p-2
+:align: center
+:height: 160px
+```
 
 # Inference of Compartmental Models toolbox
 
@@ -27,7 +29,4 @@ compartmental models.
 ### Credits
 
 Logo by [Fabian Mikulasch](https://scholar.google.com/citations?user=ZWWBIoUAAAAJ&hl=en)
-
-
-
 
