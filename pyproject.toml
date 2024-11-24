@@ -69,6 +69,8 @@ ignore = [
     "E721", # ignore type comparisons
     "E731", # ignore lambdas rewrites
     "E741", # ignore ambiguous variable names, because of the example of the S,I,R model
+    "UP007", # don't reformat Optional[...] to ... | None as it isn't supported by
+             # autodoc
 ]
 select = [
     "E", # pycodestyle

@@ -78,11 +78,12 @@ git checkout -b name-of-your-bugfix-or-feature
 Now you can make your changes locally.
 
 6. When you’re done making changes, check that your passes the linter and formatter,
-   and passes all tests
+   the code passes all tests, and the documentation builds correctly:
 
 ```bash
 pre-commit run --all-files
 pytest
+make docs-preview
 ```
 
 

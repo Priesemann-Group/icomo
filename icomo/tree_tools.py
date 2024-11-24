@@ -2,7 +2,7 @@
 
 from collections.abc import Generator, Sequence
 from types import EllipsisType
-from typing import Any
+from typing import Any, Optional
 
 from jaxtyping import ArrayLike, PyTree
 
@@ -37,7 +37,7 @@ def walk_tree(tree: PyTree) -> Generator[tuple[list, Any]]:
 def nested_indexing(
     tree: PyTree,
     indices: str | int | Sequence[str | int],
-    add: ArrayLike | None = None,
+    add: Optional[ArrayLike] = None,
     at: int | EllipsisType | slice | None | Sequence[EllipsisType | slice | int] = None,
 ) -> Any:
     """Return the element of a nested structure of lists or tuples.

@@ -60,6 +60,7 @@ autodoc_mock_imports = [
     "diffrax",
     "pytensor",
     "equinox",
+    "jaxtyping",
 ]
 
 nbsphinx_allow_errors = True

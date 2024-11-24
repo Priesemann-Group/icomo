@@ -2,6 +2,7 @@
 
 import inspect
 from collections.abc import Callable
+from typing import Optional
 
 import diffrax
 import jax
@@ -56,7 +57,7 @@ def interpolate_func(
 
 def diffeqsolve(
     *args,
-    ts_out: ArrayLike | None = None,
+    ts_out: Optional[ArrayLike] = None,
     ODE: Callable[[ArrayLike, PyTree, PyTree], PyTree] | None = None,
     fixed_step_size: bool = False,
     **kwargs,
