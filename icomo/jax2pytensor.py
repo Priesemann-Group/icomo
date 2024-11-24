@@ -1,7 +1,6 @@
 """Convert a jax function to a pytensor compatible function."""
 
 import functools as ft
-import inspect
 import logging
 from collections.abc import Sequence
 
@@ -21,16 +20,40 @@ log = logging.getLogger(__name__)
 _filter_ptvars = lambda x: isinstance(x, pt.Variable)
 
 
-class _Jax2Pytensor:
-    def __init__(
-        self,
-        jaxfunc,
-        name=None,
-    ):
-        self.jaxfunc = jaxfunc
-        self.name = name
+def jax2pytensor(jaxfunc, name=None):
+    """Return a pytensor from a jax jittable function.
 
-    def __call__(self, *args, **kwargs):
+    It requires to define the output types of the returned values as pytensor types. A
+    unique name should also be passed in case the name of the jaxfunc is identical to
+    some other node. The design of this function is based on
+    https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/
+
+    Parameters
+    ----------
+    jaxfunc : jax jittable function
+        function for which the node is created, can return multiple tensors as a tuple.
+        It is required that all return values are able to transformed to
+        pytensor.TensorVariable.
+    output_shape_def : function
+        Function that returns the shape of the output. If None, the shape is expected to
+        be the same as the shape of the args_for_graph arguments. If not None, the
+        function should return a tuple of shapes, it will receive as input the shapes of
+        the args_for_graph as tuples. Shapes are defined as tuples of integers or None.
+    args_for_graph : list of str or "all"
+        If "all", all arguments except arguments passed via **kwargs are used for the
+        graph. Otherwise specify a list of argument names to use for the graph.
+    name: str
+        Name of the created pytensor Op, defaults to the name of the passed function.
+        Only used internally in the pytensor graph.
+
+    Returns
+    -------
+        A Pytensor Op which can be used in a pm.Model as function, is differentiable
+        and compilable with both JAX and C backend.
+
+    """
+
+    def func(*args, **kwargs):
         """Return a pytensor from a jax jittable function."""
         ### Construct the function to return that is compatible with pytensor but has
         ### the same signature as the jax function.
@@ -49,12 +72,15 @@ class _Jax2Pytensor:
             shapes_vars,
         )
 
+        ### Combine the static variables with the inputs, and split them again in the
+        ### output. Static variables don't take part in the graph, or might be a
+        ### a function that is returned.
         static_outvars = None
 
         def _jaxfunc_partitioned(vars, static_vars):
             args, kwargs = eqx.combine(vars, static_vars)
 
-            out = self.jaxfunc(*args, **kwargs)
+            out = jaxfunc(*args, **kwargs)
             nonlocal static_outvars
             outvars, static_outvars = eqx.partition(
                 out,
@@ -64,6 +90,7 @@ class _Jax2Pytensor:
             # jax.debug.print("outvars: {}", outvars)
             return outvars
 
+        ### Construct the function that accepts flat inputs and returns flat outputs.
         def _func_flattened(vars_flat, vars_treedef, static_vars):
             # jax.debug.print("vars flat: {}", vars_flat)
             vars = tree_unflatten(vars_treedef, vars_flat)
@@ -92,6 +119,8 @@ class _Jax2Pytensor:
             for var in jaxtypes_outvars_flat
         ]
 
+        ### Call the function that accepts flat inputs, which in turn calls the one that
+        ### combines the inputs and static variables.
         jitted_sol_op_jax = jax.jit(
             ft.partial(
                 _func_flattened,
@@ -119,13 +148,15 @@ class _Jax2Pytensor:
 
         jitted_vjp_sol_op_jax = jax.jit(vjp_sol_op_jax)
 
-        if self.name is None:
-            self.name = self.jaxfunc.__name__
+        if name is None:
+            curr_name = jaxfunc.__name__
+        else:
+            curr_name = name
 
         # Get classes that creates a Pytensor Op out of our function that accept
         # flattened inputs. They are created each time, to set a custom name for the
         # class.
-        SolOp, VJPSolOp = _return_pytensor_ops_classes(self.name)
+        SolOp, VJPSolOp = _return_pytensor_ops_classes(curr_name)
 
         local_op = SolOp(
             vars_treedef,
@@ -151,9 +182,10 @@ class _Jax2Pytensor:
             output_flat = [output_flat]  # tree_unflatten expects a sequence.
         outvars = tree_unflatten(outvars_treedef, output_flat)
         output = eqx.combine(outvars, static_outvars)
-        # output = outvars
-        # print("output: ", output)
+
         return output
+
+    return func
 
 
 def _flattened_input_func(
@@ -210,97 +242,6 @@ def _normalize_flat_output(output):
         # tuple and list and not pytensor
     else:
         return output[0]
-
-
-def _split_arguments(func_signature, args, kwargs, args_for_graph):
-    """Split the arguments into inputs for the graph and other arguments.
-
-    Parameters
-    ----------
-    func_signature : inspect.Signature
-        signature of the function
-    args : tuple
-        arguments of the function as collected by *args
-    kwargs : dict
-        keyword arguments of the function as collected by **kwargs
-    args_for_graph : list of str or "all"
-        If "all", all arguments are used for the graph. Otherwise specify a list of
-        argument names to use for the graph.
-
-    Returns
-    -------
-    inputs_for_graph_list : list
-        list of inputs for the graph as a list of non-flat pytensors trees.
-    inputnames_for_graph_list : list
-        list of the argument names of the inputs for the graph, same length as
-        inputs_for_graph_list.
-    other_args_dic : dict
-        dictionary of arguments not used for the graph.
-    """
-    for key in kwargs.keys():
-        if key not in func_signature.parameters and key in args_for_graph:
-            raise RuntimeError(
-                f"Keyword argument <{key}> not found in function signature. "
-                f"**kwargs are not supported in the definition of the function,"
-                f"because the order is not guaranteed."
-            )
-    arguments_bound = func_signature.bind(*args, **kwargs)
-    arguments_bound.apply_defaults()
-
-    # Check whether there exist an used **kwargs in the function signature
-    for arg_name in arguments_bound.signature.parameters:
-        if (
-            arguments_bound.signature.parameters[arg_name]
-            == inspect._ParameterKind.VAR_KEYWORD
-        ):
-            var_keyword = arg_name
-    else:
-        var_keyword = None
-    arg_names = [
-        key for key in arguments_bound.arguments.keys() if not key == var_keyword
-    ]
-    arg_names_from_kwargs = [key for key in arguments_bound.kwargs.keys()]
-
-    if args_for_graph == "all":
-        args_for_graph_from_args = arg_names
-        args_for_graph_from_kwargs = arg_names_from_kwargs
-    else:
-        args_for_graph_from_args = []
-        args_for_graph_from_kwargs = []
-        for arg in args_for_graph:
-            if arg in arg_names:
-                args_for_graph_from_args.append(arg)
-            elif arg in arg_names_from_kwargs:
-                args_for_graph_from_kwargs.append(arg)
-            else:
-                raise ValueError(f"Argument {arg} not found in the function signature.")
-
-    inputs_for_graph_list = [
-        arguments_bound.arguments[arg] for arg in args_for_graph_from_args
-    ]
-    inputs_for_graph_list += [
-        arguments_bound.kwargs[arg] for arg in args_for_graph_from_kwargs
-    ]
-    inputnames_for_graph_list = args_for_graph_from_args + args_for_graph_from_kwargs
-
-    other_args_dic = {
-        arg: arguments_bound.arguments[arg]
-        for arg in arg_names
-        if arg not in inputnames_for_graph_list
-    }
-    other_args_dic.update(
-        **{
-            arg: arguments_bound.kwargs[arg]
-            for arg in arg_names_from_kwargs
-            if arg not in inputnames_for_graph_list
-        }
-    )
-
-    return (
-        inputs_for_graph_list,
-        inputnames_for_graph_list,
-        other_args_dic,
-    )
 
 
 def _return_pytensor_ops_classes(name):
@@ -426,38 +367,3 @@ def _return_pytensor_ops_classes(name):
     )
 
     return SolOp, VJPSolOp
-
-
-def jax2pytensor(*args, **kwargs):
-    """Return a pytensor from a jax jittable function.
-
-    It requires to define the output types of the returned values as pytensor types. A
-    unique name should also be passed in case the name of the jaxfunc is identical to
-    some other node. The design of this function is based on
-    https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/
-
-    Parameters
-    ----------
-    jaxfunc : jax jittable function
-        function for which the node is created, can return multiple tensors as a tuple.
-        It is required that all return values are able to transformed to
-        pytensor.TensorVariable.
-    output_shape_def : function
-        Function that returns the shape of the output. If None, the shape is expected to
-        be the same as the shape of the args_for_graph arguments. If not None, the
-        function should return a tuple of shapes, it will receive as input the shapes of
-        the args_for_graph as tuples. Shapes are defined as tuples of integers or None.
-    args_for_graph : list of str or "all"
-        If "all", all arguments except arguments passed via **kwargs are used for the
-        graph. Otherwise specify a list of argument names to use for the graph.
-    name: str
-        Name of the created pytensor Op, defaults to the name of the passed function.
-        Only used internally in the pytensor graph.
-
-    Returns
-    -------
-        A Pytensor Op which can be used in a pm.Model as function, is differentiable
-        and compilable with both JAX and C backend.
-
-    """
-    return _Jax2Pytensor(*args, **kwargs)
