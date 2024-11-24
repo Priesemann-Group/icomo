@@ -7,7 +7,7 @@ import pytensor
 import pytensor.tensor as pt
 import pytest
 
-from icomo import jax2pyfunc, jax2pytensor
+from icomo import jax2pytensor
 
 
 @pytest.fixture
@@ -217,8 +217,7 @@ def test_models():
         x = pm.Normal("input", size=3)
         y = pm.Normal("input2", size=3)
 
-        # @jax2pytensor
-        @jax2pyfunc
+        @jax2pytensor
         def f_internal(y):
             def f_ret(t):
                 return y + t

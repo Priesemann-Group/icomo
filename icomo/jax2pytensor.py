@@ -21,41 +21,6 @@ log = logging.getLogger(__name__)
 _filter_ptvars = lambda x: isinstance(x, pt.Variable)
 
 
-class _WrappedFunc:
-    def __init__(self, func, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-        vars, static_vars = eqx.partition((self.args, self.kwargs), _filter_ptvars)
-        self.vars = vars
-        self.static_vars = static_vars
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        func_internal = self.func(*self.args, **self.kwargs)
-        return func_internal(*args, **kwargs)
-
-    def get_vars(self):
-        return self.vars
-
-    def set_vars(self, vars):
-        self.vars = vars
-        self.args, self.kwargs = eqx.combine(self.vars, self.static_vars)
-
-    def get_func_with_vars(self, vars):
-        args, kwargs = eqx.combine(vars, self.static_vars)
-        return self.func(*args, **kwargs)
-
-
-def jax2pyfunc(func_gen):
-    """Return a pytensor function from a jax jittable function."""
-
-    @ft.wraps(func_gen)
-    def func_gen_wrapper(*args, **kwargs):
-        return _WrappedFunc(func_gen, *args, **kwargs)
-
-    return func_gen_wrapper
-
-
 class _Jax2Pytensor:
     def __init__(
         self,
@@ -69,20 +34,7 @@ class _Jax2Pytensor:
         """Return a pytensor from a jax jittable function."""
         ### Construct the function to return that is compatible with pytensor but has
         ### the same signature as the jax function.
-        pt_vars, static_vars_tmp = eqx.partition((args, kwargs), _filter_ptvars)
-        func_vars, static_vars = eqx.partition(
-            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc)
-        )
-        vars_from_func = tree_map(lambda x: x.get_vars(), func_vars)
-        pt_vars = dict(vars=pt_vars, vars_from_func=vars_from_func)
-
-        def func(vars_all, static_vars):
-            vars, vars_from_func = vars_all["vars"], vars_all["vars_from_func"]
-            func_vars_evaled = tree_map(
-                lambda x, y: x.get_func_with_vars(y), func_vars, vars_from_func
-            )
-            args, kwargs = eqx.combine(vars, static_vars, func_vars_evaled)
-            return self.jaxfunc(*args, **kwargs)
+        pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
 
         pt_vars_flat, vars_treedef = tree_flatten(pt_vars)
         pt_vars_types_flat = [var.type for var in pt_vars_flat]
@@ -97,15 +49,12 @@ class _Jax2Pytensor:
             shapes_vars,
         )
 
-        # jaxtypes_out = eqx.filter_eval_shape(
-        #    jaxfunc, *dummy_inputs_jax[0], **dummy_inputs_jax[1]
-        # )
-
         static_outvars = None
 
         def _jaxfunc_partitioned(vars, static_vars):
-            # args, kwargs = eqx.combine(vars, static_vars)
-            out = func(vars, static_vars)
+            args, kwargs = eqx.combine(vars, static_vars)
+
+            out = self.jaxfunc(*args, **kwargs)
             nonlocal static_outvars
             outvars, static_outvars = eqx.partition(
                 out,
@@ -136,36 +85,12 @@ class _Jax2Pytensor:
             ),
         )
 
-        """
-        # Evaluate shape, could have also used jax.eval_shape or
-        # equinox.filter_eval_shape, for future...
-        _, jaxtypes_outvars = jax.make_jaxpr(
-            ft.partial(_jaxfunc_partitioned, static_vars=static_vars),
-            return_shape=True,
-        )(dummy_inputs_jax)
-        """
-
-        # jaxtypes_outvars_flat = (
-        #    (jaxtypes_outvars_flat,)
-        #    if isinstance(jaxtypes_outvars_flat, jax.ShapeDtypeStruct)
-        #    else jaxtypes_outvars_flat
-        # )
-
         jaxtypes_outvars_flat, outvars_treedef = tree_flatten(jaxtypes_outvars)
-
-        # print("jaxtypes_outvars: ", jaxtypes_outvars)
 
         pttypes_outvars = [
             pt.TensorType(dtype=var.dtype, shape=var.shape)
             for var in jaxtypes_outvars_flat
         ]
-        # print("pttypes_outvars: ", pttypes_outvars)
-
-        ### Create the Pytensor Op, the normal one and the vector-jacobian-
-        ### product (vjp)
-        # flat_func = _flattened_input_func(
-        #     jaxfunc, input_treedef, inputnames_list, other_args_dic
-        # )
 
         jitted_sol_op_jax = jax.jit(
             ft.partial(
