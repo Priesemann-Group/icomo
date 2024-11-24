@@ -269,3 +269,5 @@ imgmath_image_format = "svg"
 imgmath_font_size = 14
 
 autodoc_member_order = "bysource"
+html_favicon = "images/icomo_icon.png"
+html_logo = "images/icomo_logo250px.png"
