@@ -273,6 +273,7 @@ imgmath_image_format = "svg"
 imgmath_font_size = 14
 
 autodoc_member_order = "bysource"
+autoclass_content = "both"
 typehints_use_signature = False
 typehints_use_signature_return_annotation = False
 typehints_defaults = "comma"
@@ -285,7 +286,7 @@ autodoc_type_aliases = {
 nitpicky = True
 
 always_use_bars_union = True
-autodoc_typehints = "none"
+autodoc_typehints = "description"
 
 
 always_document_param_types = True

@@ -8,10 +8,5 @@ Defining a compartmental model
 
 
 .. autoclass:: CompModel
+    :exclude-members: y, dy, edges, __weakref__
     :members:
-    :undoc-members:
-    :show-inheritance:
-    :inherited-members:
-    :exclude-members: __weakref__
-    :special-members: __init__
-

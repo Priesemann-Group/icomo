@@ -77,35 +77,41 @@ class CompModel:
 
     The model is built by adding flows between compartments. The model is then compiled
     into a function that can be used in an ODE.
+
+    Parameters
+    ----------
+    y_dict: PyTree[ArrayLike]
+        Dictionary of compartments. Keys are the names of the compartments and
+        values are floats or ndarrays that represent their value.
+
+    Attributes
+    ----------
+    y: PyTree[jax.Array]
+        Dictionary or pytree of compartments. Keys/indices are the names of the
+        compartments and values are :class:`jax.Array` that represent their value.
+    dy: PyTree[jax.Array]
+        Dictionary or pytree of compartments. Keys/indices are the names of the
+        compartments and values are :class:`jax.Array` that represent their
+        derivative.
+    edges: PyTree[list[tuple[indices, str]]]
+        Edges between compartments, saved as the same pytree as the compartments,
+        but as leafs, as a list of tuples. The first element of the tuple is the
+        index of the compartment the flow is going to, the second element is the
+        label of the flow.
     """
 
     def __init__(self, y_dict: PyTree[ArrayLike] = None):
-        """Initialize the CompModel class.
-
-        Parameters
-        ----------
-        y_dict: dict
-            Dictionary of compartments. Keys are the names of the compartments and
-            values are floats or ndarrays that represent their value.
-        """
         if y_dict is None:
             y_dict = {}
         self.y = y_dict
 
     @property
     def y(self) -> PyTree[Array]:
-        """Returns the compartments of the model.
-
-        Returns
-        -------
-        y:
-            Dictionary of compartments. Keys are the names of the compartments and
-            values are floats or ndarrays that represent their value.
-        """
+        """Get the compartments of the compartmental model."""
         return self._y
 
     @property
-    def edges(self):
+    def edges(self) -> PyTree[list[tuple[str | int | Sequence[str | int], str]]]:
         """Get the flow labels of the compartmental model."""
         return self._edges
 
@@ -114,12 +120,6 @@ class CompModel:
         """Set the compartments of the model.
 
         Also resets the derivatives of the compartments to zero.
-
-        Parameters
-        ----------
-        y_dict:
-            Dictionary of compartments. Keys are the names of the compartments and
-            values are floats or ndarrays that represent their value.
         """
         self._y = jax.tree_util.tree_map(lambda x: jnp.array(x), y_dict)
         self._dy = jax.tree_util.tree_map(lambda x: jnp.zeros_like(x), self.y)
@@ -127,14 +127,7 @@ class CompModel:
 
     @property
     def dy(self):
-        """Returns the derivative of the compartments.
-
-        This should be returned by the function that defines the system of ODEs.
-
-        Returns
-        -------
-        dComp: dict
-        """
+        """Returns the derivative of the compartments."""
         return self._dy
 
     def flow(

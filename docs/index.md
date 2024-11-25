@@ -15,9 +15,11 @@ Getting started <example>
 :caption: API
 
 api/comp_model
+api/diffrax_wrapper
 api/references
 contributing
 ```
+
 
 ### Indices and tables
 
