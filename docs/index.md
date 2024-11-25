@@ -15,8 +15,13 @@ Getting started <example>
 :caption: API
 
 api/comp_model
+api/jax2pytensor
 api/diffrax_wrapper
-api/references
+api/tree_tools
+api/experimental
+```
+
+```{toctree}
 contributing
 ```
 

@@ -8,7 +8,19 @@ from jaxtyping import ArrayLike, PyTree
 
 
 def walk_tree(tree: PyTree) -> Generator[tuple[list, Any]]:
-    """Walk through a tree and yield the indices and values of the leaves."""
+    """Walk through a tree and yield the indices and values of the leaves.
+
+    Parameters
+    ----------
+    tree :
+        The tree to walk through. Can only be a nested tree of lists, tuples and/or
+        dictionaries.
+
+    Yields
+    ------
+    indices, value
+        The indices as a list and values of the leaves.
+    """
     cursor = []
     generators_list = []
     value = tree

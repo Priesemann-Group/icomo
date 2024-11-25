@@ -59,9 +59,11 @@ Changelog = "https://github.com/Priesemann-Group/icomo/releases"
 
 [tool.pytest.ini_options]
 testpaths = [
-    "tests",
+    "icomo", "tests",
 ]
 beartype_packages = 'icomo'
+addopts = "--doctest-modules"
+
 
 
 [tool.ruff.lint]
@@ -99,6 +101,7 @@ write_to = "icomo/_version.py"
 
 [tool.uv]
 constraint-dependencies = ["numpy<2"]
+
 
 
 

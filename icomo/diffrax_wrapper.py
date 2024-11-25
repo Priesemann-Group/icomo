@@ -18,38 +18,40 @@ def diffeqsolve(
 ) -> diffrax.Solution:
     """Solves a system of differential equations.
 
-    Wrapper of `diffrax.diffeqsolve`.
-    It accepts the same parameters as `diffrax.diffeqsolve`. Additionally,
-    for convenience, it allows the specification of the output timesteps `ts_out` and
-    the system of differential equations `ODE` as keyword arguments. For a simple ODE,
-    use the following keyword arguments:
+    Wrapper of :meth:`diffrax.diffeqsolve`.
+    It accepts the same parameters as :meth:`diffrax.diffeqsolve`.
+    Additionally, for convenience, it allows the specification of the output
+    timesteps ``ts_out`` and
+    the system of differential equations ``ODE`` as keyword arguments. If not specified,
+    it uses the :class:`diffrax.Tsit5` solver. For a simple ODE, it is enough to
+    specify the following keyword arguments:
 
     Parameters
     ----------
-    ts_out : array-like
-        The timesteps at which the output is returned. Same as
-        icomo.diffeqsolve(..., saveat=diffrax.SaveAt(ts=ts_out)). It sets additionally
-        the initial time `t0`, the final time `t1` and the time step `dt0` of the solver
-        if not specified separately.
-    ODE : function(t, y, args)
-        The function that returns the derivatives of the variables of the system of
-        differential equations. Same as
-        icomo.diffeqsolve(..., terms=diffrax.ODETerm(ODE)).
-    y0 : PyTree of array-likes
+    ts_out :
+        The timesteps at which the output is returned. Equivalent to
+        ``diffrax.diffeqsolve(..., saveat=diffrax.SaveAt(ts=ts_out))``. It sets
+        additionally the initial time ``t0``, the final time ``t1`` and the time step
+        ``dt0`` of the solver if not specified separately.
+    ODE :
+        The function `f(t, y, args)` that returns the derivatives of the variables of
+        the system of differential equations. Equivalent to
+        ``diffrax.diffeqsolve(..., terms=diffrax.ODETerm(ODE))``.
+    y0 :
         The initial values of the variables of the system of differential equations.
-    args : PyTree of array-likes or Callable
+    args : PyTree of ArrayLike or Callable
         The arguments of the system of differential equations. Passed as the third
         argument to the ODE function.
 
     Other Parameters
     ----------------
-    fixed_step_size : bool, default is False
-        If True, the solver uses a fixed step size of `dt0`, i.e it uses
-        stepsize_controller=diffrax.ConstantStepSize().
+    fixed_step_size :
+        If True, the solver uses a fixed step size of ``dt0``, i.e it uses
+        ``stepsize_controller=diffrax.ConstantStepSize()``.
 
     Returns
     -------
-    sol : diffrax.Solution
+    sol :
         The solution of the system of differential equations. sol.ys contains the
         variables of the system of differential equations at the output timesteps.
 
@@ -126,22 +128,25 @@ def interpolate_func(
     """
     Return a diffrax-interpolation function that can be used to interpolate pytensors.
 
+    Wrapper of :class:`diffrax.CubicInterpolation` and
+    :class:`diffrax.LinearInterpolation`.
+
     Parameters
     ----------
-    ts_in : array-like
+    ts_in :
         The timesteps at which the time-dependent variable is given.
-    vales : array-like
+    vales :
         The time-dependent variable.
-    method : str
+    method :
         The interpolation method used. Can be "cubic" or "linear".
-    ret_gradients : bool
+    ret_gradients :
         If True, the function returns the gradient of the interpolation function.
 
     Returns
     -------
-    interp : Callable
-        The interpolation function. Call `interp(t)` to evaluate the
-        interpolated variable at time `t`. t can be a float or an array-like.
+    interp :
+        The interpolation function. Call ``interp(t)`` to evaluate the
+        interpolated variable at time `t`. `t` can be a float or an ArrayLike.
 
     """
     ts_in = jax.numpy.array(ts_in)

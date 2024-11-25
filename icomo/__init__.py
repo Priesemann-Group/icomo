@@ -5,14 +5,13 @@
 from importlib import metadata as importlib_metadata
 
 from . import comp_model
-from .comp_model import (
-    CompModel,
-    erlang_kernel,
-)
+from .comp_model import CompModel, erlang_kernel, delayed_copy_kernel
 
 from .diffrax_wrapper import diffeqsolve, interpolate_func
 
 from .jax2pytensor import jax2pytensor
+
+from .tree_tools import nested_indexing, walk_tree
 
 from . import experimental
 
