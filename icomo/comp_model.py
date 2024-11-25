@@ -98,7 +98,7 @@ class CompModel:
 
         Returns
         -------
-        y: dict
+        y:
             Dictionary of compartments. Keys are the names of the compartments and
             values are floats or ndarrays that represent their value.
         """
@@ -117,7 +117,7 @@ class CompModel:
 
         Parameters
         ----------
-        y_dict: dict
+        y_dict:
             Dictionary of compartments. Keys are the names of the compartments and
             values are floats or ndarrays that represent their value.
         """
@@ -150,17 +150,17 @@ class CompModel:
 
         Parameters
         ----------
-        start_comp: str or list
+        start_comp:
             Key of the start compartment.
-        end_comp: str
+        end_comp:
             Key of the end compartment
-        rate: float or ndarray
+        rate:
             rate of the flow to add between compartments, is multiplied by start_comp,
             so it should be broadcastable whith it.
-        label: str, optional
+        label:
             label of the edge between the compartments that will be used when displaying
             a graph of the compartmental model.
-        end_comp_is_erlang: bool, default: False
+        end_comp_is_erlang:
             If True, end_comp points to a compartment with an Erlang distributed
             dwelling time, i.e., as the last dimension of the compartment is used
             for the Erlang distribution modeling. The flow is then only added to the
@@ -190,19 +190,19 @@ class CompModel:
 
         Parameters
         ----------
-        start_comp: str or list
+        start_comp:
             start compartments of the flow. The length of last dimension the list is
             the shape of the
             Erlang kernel.
-        end_comp: str or list
+        end_comp:
             end compartment of the flow
-        rate: float or ndarray
+        rate:
             rate of the flow, equal to the inverse of the mean time spent in the Erlang
             kernel.
-        label: str, optional
+        label:
             label of the edge between the compartments that will be used when displaying
             a graph of the compartmental model.
-        end_comp_is_erlang: bool, default: False
+        end_comp_is_erlang:
             If True, end_comp points to a compartment with an Erlang distributed
             dwelling time, i.e., as the last dimension of the compartment is used
             for the Erlang distribution modeling. The flow is then only added to the
@@ -244,11 +244,11 @@ class CompModel:
 
         Parameters
         ----------
-        y_key: str
+        y_key:
             Key of the compartment
-        additive_dy: float or ndarray
+        additive_dy:
             Derivative to add to the compartment
-        comp_is_list: bool, default: False
+        comp_is_list:
 
         """
         nested_indexing(
@@ -267,7 +267,7 @@ class CompModel:
 
         Parameters
         ----------
-        on_display : bool
+        on_display :
             If True, the graph is displayed in the notebook, otherwise it is saved as a
             pdf in the current folder and opened with the default pdf viewer.
         """
@@ -305,9 +305,9 @@ def delayed_copy_kernel(
 
     Parameters
     ----------
-    initial_comp : jnp.ndarray, shape: (...)
+    initial_comp : shape: (...)
         The compartment that is copied
-    delayed_comp : jnp.ndarray, shape (..., n)
+    delayed_comp : shape (..., n)
         Compartment that is a delayed copies of initial_var, the last element of the
         last dimension is the compartment which has the same total content as
         initial_comp over time, but is delayed by tau_delay.

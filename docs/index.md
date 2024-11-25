@@ -3,11 +3,18 @@
 ```
 
 ```{toctree}
-:maxdepth: 1
-:caption: Contents
+:maxdepth: 3
+:caption: Getting started
 
 installation
 Getting started <example>
+```
+
+```{toctree}
+:maxdepth: 3
+:caption: API
+
+api/comp_model
 api/references
 contributing
 ```

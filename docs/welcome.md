@@ -18,7 +18,7 @@ compartmental models.
 
 * Documentation: https://icomo.readthedocs.io.
 
-### Features
+## Features
 
 * Facilitate the construction of compartmental models by only defining flow between compartments, and
   automatically generating the corresponding ODEs.
@@ -26,7 +26,7 @@ compartmental models.
 * Integrate the ODEs using diffrax, automatically generating the Jacobian of the parameters of the ODE
 * Fit the parameters using minimization algorithms or build a Bayesian model using PyMC.
 
-### Credits
+## Credits
 
 Logo by [Fabian Mikulasch](https://scholar.google.com/citations?user=ZWWBIoUAAAAJ&hl=en)
 

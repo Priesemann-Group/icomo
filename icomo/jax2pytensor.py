@@ -34,14 +34,6 @@ def jax2pytensor(jaxfunc, name=None):
         function for which the node is created, can return multiple tensors as a tuple.
         It is required that all return values are able to transformed to
         pytensor.TensorVariable.
-    output_shape_def : function
-        Function that returns the shape of the output. If None, the shape is expected to
-        be the same as the shape of the args_for_graph arguments. If not None, the
-        function should return a tuple of shapes, it will receive as input the shapes of
-        the args_for_graph as tuples. Shapes are defined as tuples of integers or None.
-    args_for_graph : list of str or "all"
-        If "all", all arguments except arguments passed via **kwargs are used for the
-        graph. Otherwise specify a list of argument names to use for the graph.
     name: str
         Name of the created pytensor Op, defaults to the name of the passed function.
         Only used internally in the pytensor graph.

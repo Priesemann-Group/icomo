@@ -32,13 +32,14 @@ from importlib.metadata import version
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx_autodoc_typehints",
     "sphinx.ext.mathjax",
     "sphinx.ext.autosectionlabel",
-    "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     #    "m2r",
     "myst_parser",
     "nbsphinx",
+    "sphinx.ext.intersphinx",
 ]
 
 
@@ -61,6 +62,7 @@ autodoc_mock_imports = [
     "pytensor",
     "equinox",
     "jaxtyping",
+    "jax.typing",
 ]
 
 nbsphinx_allow_errors = True
@@ -131,8 +133,8 @@ html_theme_options = {
     "collapse_navigation": False,
     "navigation_depth": 4,
     "home_page_in_toc": True,
-    "show_navbar_depth": 2,
-    "show_toc_level": 2,
+    "show_navbar_depth": 3,
+    "show_toc_level": 3,
     "repository_url": "https://github.com/Priesemann-Group/icomo",
     "use_source_button": False,
     "use_edit_page_button": True,
@@ -150,8 +152,9 @@ html_theme_options = {
             "type": "fontawesome",
         }
     ],
-    "header_links_before_dropdown": 1,
+    "header_links_before_dropdown": 2,
 }
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -263,11 +266,29 @@ intersphinx_mapping = {
     "jax": ("https://jax.readthedocs.io/en/latest/", None),
     "diffrax": ("https://docs.kidger.site/diffrax/", None),
     "optax": ("https://optax.readthedocs.io/en/latest/", None),
+    "jaxtyping": ("https://docs.kidger.site/jaxtyping/", None),
 }
 
 imgmath_image_format = "svg"
 imgmath_font_size = 14
 
 autodoc_member_order = "bysource"
+typehints_use_signature = False
+typehints_use_signature_return_annotation = False
+typehints_defaults = "comma"
+typehints_fully_qualified = False
+autodoc_type_aliases = {
+    "ArrayLike": "jax.typing.ArrayLike",
+    "jax.typing.DType": "jax.typing.DType",
+}
+
+nitpicky = True
+
+always_use_bars_union = True
+autodoc_typehints = "none"
+
+
+always_document_param_types = True
+
 html_favicon = "images/icomo_icon.png"
 html_logo = "images/icomo_logo250px.png"
