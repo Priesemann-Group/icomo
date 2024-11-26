@@ -62,7 +62,9 @@ def jax2pytensor(jaxfunc, name=None):
     >>> print(np.round(np.mean(trace.posterior["input"].to_numpy()),1))
     1.0
 
-    Or a more complex example with a custom function that returns multiple outputs.
+    Or a more complex example. One might want to build a model which includes the
+    solution of non-linear equation. For instance the intersection of `log(x)` and
+    `1/x`:
 
     >>> import optimistix
     >>> with pm.Model() as model:
@@ -79,22 +81,53 @@ def jax2pytensor(jaxfunc, name=None):
     ...     @icomo.jax2pytensor
     ...     def find_intersection(funcs, arg1):
     ...         f1, f2 = funcs["f1"], funcs["f2"]
-    ...         #jax.debug.print("arg1: {}", arg1)
-    ...         res = optimistix.minimise(fn = lambda x, _: (f1(x) - f2(x, arg1))**2,
-    ...                                    solver=optimistix.BFGS(rtol=1e-6, atol=1e-6),
-    ...                                        max_steps=10000,
-    ...                                      y0=3.)
+    ...         loss = lambda x, _: (f1(x) - f2(x,arg1))**2
+    ...               # Loss is squared to make it more convex
+    ...         res = optimistix.minimise(fn = loss,
+    ...                                   solver=optimistix.BFGS(rtol=1e-8, atol=1e-8),
+    ...                                   y0=3.)
     ...         return res
     ...
     ...     intersection_res = find_intersection({"f1": f1, "f2": f2}, arg1)
     ...     intersection = pm.Deterministic("inters", intersection_res.value)
-    ...     obs = pm.StudentT("obs", mu=intersection, sigma=0.1, nu=4, observed=3)
-    >>> trace = pm.sample(model = model, draws = 4000,
-    ...                   nuts_sampler="numpyro") # doctest: +ELLIPSIS
+    ...     obs = pm.Normal("obs", mu=intersection, sigma=0.1, observed=3)
+    >>> trace = pm.sample(model = model, nuts_sampler="numpyro") # doctest: +ELLIPSIS
     >>> print(f"Inters. = {np.round(np.mean(trace.posterior['inters'].to_numpy()),1)}")
     Inters. = 3.0
     >>> print(f"Std. int. = {np.round(np.std(trace.posterior['inters'].to_numpy()),1)}")
     Std. int. = 0.1
+
+    The jax computations can also be splitted, like in the following example. The
+    function f2 is created in a separate function, and then passed to the main function.
+
+    >>> with pm.Model() as model:
+    ...     arg1 = pm.HalfNormal("arg1")
+    ...     arg1 = pm.math.clip(arg1,0.1,10)
+    ...     f1 = lambda x: 1/x
+    ...
+    ...     @icomo.jax2pytensor
+    ...     def f2_creator(arg1):
+    ...         f_log = lambda x: jnp.log(x) - arg1
+    ...         return f_log
+    ...     f2 = f2_creator(arg1)
+    ...
+    ...     @icomo.jax2pytensor
+    ...     def find_intersection(f1, f2):
+    ...         loss = lambda x, _: (f1(x) - f2(x))**2
+    ...               # Loss is squared to make it more convex
+    ...         res = optimistix.minimise(fn = loss,
+    ...                                   solver=optimistix.BFGS(rtol=1e-8, atol=1e-8),
+    ...                                   y0=3.)
+    ...         return res
+    ...
+    ...     intersection_res = find_intersection(f1, f2)
+    ...     intersection = pm.Deterministic("inters", intersection_res.value)
+    ...     obs = pm.Normal("obs", mu=intersection, sigma=0.1, observed=3)
+    >>> trace = pm.sample(model = model, nuts_sampler="numpyro") # doctest: +ELLIPSIS
+    >>> print(f"Inters. = {np.round(np.mean(trace.posterior['inters'].to_numpy()),1)}")
+    Inters. = 1.8
+    >>> print(f"Std. int. = {np.round(np.std(trace.posterior['inters'].to_numpy()),1)}")
+    Std. int. = 0.0
 
     """
 
