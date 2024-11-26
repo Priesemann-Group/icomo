@@ -107,16 +107,23 @@ def jax2pytensor(jaxfunc, name=None):
     ...
     ...     @icomo.jax2pytensor
     ...     def f2_creator(arg1):
-    ...         f_log = lambda x: jnp.log(x) - arg1
+    ...         def f_log(x):
+    ...             jax.debug.print("arg1: {}", arg1)
+    ...             jax.debug.print("x: {}", x)
+    ...             return jnp.log(x*arg1+1)
     ...         return f_log
     ...     f2 = f2_creator(arg1)
     ...
     ...     @icomo.jax2pytensor
     ...     def find_intersection(f1, f2):
-    ...         loss = lambda x, _: (f1(x) - f2(x))**2
+    ...         loss = lambda x, _: (f1(x) + f2(x))**2
+    ...         def loss(x,_):
+    ...               loss = (f1(x) + f2(x))**2
+    ...               jax.debug.print("loss: {}", loss)
+    ...               return loss
     ...               # Loss is squared to make it more convex
     ...         res = optimistix.minimise(fn = loss,
-    ...                                   solver=optimistix.BFGS(rtol=1e-8, atol=1e-8),
+    ...                                   solver=optimistix.BFGS(rtol=1e-3, atol=1e-3),
     ...                                   y0=3.)
     ...         return res
     ...
@@ -135,7 +142,22 @@ def jax2pytensor(jaxfunc, name=None):
         """Return a pytensor from a jax jittable function."""
         ### Construct the function to return that is compatible with pytensor but has
         ### the same signature as the jax function.
-        pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
+        # pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
+        pt_vars, static_vars_tmp = eqx.partition((args, kwargs), _filter_ptvars)
+        func_vars, static_vars = eqx.partition(
+            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc)
+        )
+        vars_from_func = tree_map(lambda x: x.get_pt_vars(), func_vars)
+        pt_vars = dict(vars=pt_vars, vars_from_func=vars_from_func)
+        """
+        def func_unwrapped(vars_all, static_vars):
+            vars, vars_from_func = vars_all["vars"], vars_all["vars_from_func"]
+            func_vars_evaled = tree_map(
+                lambda x, y: x.get_func_with_vars(y), func_vars, vars_from_func
+            )
+            args, kwargs = eqx.combine(vars, static_vars, func_vars_evaled)
+            return self.jaxfunc(*args, **kwargs)
+        """
 
         pt_vars_flat, vars_treedef = tree_flatten(pt_vars)
         pt_vars_types_flat = [var.type for var in pt_vars_flat]
@@ -150,44 +172,17 @@ def jax2pytensor(jaxfunc, name=None):
             shapes_vars,
         )
 
-        ### Combine the static variables with the inputs, and split them again in the
-        ### output. Static variables don't take part in the graph, or might be a
-        ### a function that is returned.
-        static_outvars = None
-
-        def _jaxfunc_partitioned(vars, static_vars):
-            args, kwargs = eqx.combine(vars, static_vars)
-
-            out = jaxfunc(*args, **kwargs)
-            nonlocal static_outvars
-            outvars, static_outvars = eqx.partition(
-                out,
-                eqx.is_array,  # lambda x: isinstance(x, jax.Array)
-            )
-            # print("static outvars: {}", static_outvars)
-            # jax.debug.print("outvars: {}", outvars)
-            return outvars
-
-        ### Construct the function that accepts flat inputs and returns flat outputs.
-        def _func_flattened(vars_flat, vars_treedef, static_vars):
-            # jax.debug.print("vars flat: {}", vars_flat)
-            vars = tree_unflatten(vars_treedef, vars_flat)
-            # jax.debug.print("vars: {}", vars)
-            outvars = _jaxfunc_partitioned(vars, static_vars)
-            outvars_flat, _ = tree_flatten(outvars)
-            # jax.debug.print("outvars flat: {}", outvars_flat)
-            return _normalize_flat_output(outvars_flat)
-
-        _func_flattened_partial = ft.partial(
-            _func_flattened,
-            vars_treedef=vars_treedef,
-            static_vars=static_vars,
+        # Combine the static variables with the inputs, and split them again in the
+        # output. Static variables don't take part in the graph, or might be a
+        # a function that is returned.
+        jaxfunc_partitioned, static_out_dic = _partition_jaxfunc(
+            jaxfunc, static_vars, func_vars
         )
 
+        func_flattened = _flatten_func(jaxfunc_partitioned, vars_treedef)
+
         jaxtypes_outvars = jax.eval_shape(
-            ft.partial(
-                _jaxfunc_partitioned, vars=dummy_inputs_jax, static_vars=static_vars
-            ),
+            ft.partial(jaxfunc_partitioned, vars=dummy_inputs_jax),
         )
 
         jaxtypes_outvars_flat, outvars_treedef = tree_flatten(jaxtypes_outvars)
@@ -199,31 +194,10 @@ def jax2pytensor(jaxfunc, name=None):
 
         ### Call the function that accepts flat inputs, which in turn calls the one that
         ### combines the inputs and static variables.
-        jitted_sol_op_jax = jax.jit(
-            ft.partial(
-                _func_flattened,
-                vars_treedef=vars_treedef,
-                static_vars=static_vars,
-            )
-        )
+        jitted_sol_op_jax = jax.jit(func_flattened)
         len_gz = len(pttypes_outvars)
 
-        def vjp_sol_op_jax(args):
-            y0 = args[:-len_gz]
-            gz = args[-len_gz:]
-            if len(gz) == 1:
-                gz = gz[0]
-            primals, vjp_fn = jax.vjp(local_op.perform_jax, *y0)
-            gz = tree_map(
-                lambda g, primal: jnp.broadcast_to(g, jnp.shape(primal)),
-                gz,
-                primals,
-            )
-            if len(y0) == 1:
-                return vjp_fn(gz)[0]
-            else:
-                return tuple(vjp_fn(gz))
-
+        vjp_sol_op_jax = _get_vjp_sol_op_jax(func_flattened, len_gz)
         jitted_vjp_sol_op_jax = jax.jit(vjp_sol_op_jax)
 
         if name is None:
@@ -259,11 +233,134 @@ def jax2pytensor(jaxfunc, name=None):
         if not isinstance(output_flat, Sequence):
             output_flat = [output_flat]  # tree_unflatten expects a sequence.
         outvars = tree_unflatten(outvars_treedef, output_flat)
-        output = eqx.combine(outvars, static_outvars)
+
+        static_outfuncs, static_outvars = eqx.partition(
+            static_out_dic["out"], lambda x: callable(x)
+        )
+        static_outfuncs = jax.tree_util.tree_map(
+            lambda x: _WrappedFunc(x, *args, **kwargs), static_outfuncs
+        )
+        static_vars = eqx.combine(static_outfuncs, static_outvars)
+
+        output = eqx.combine(outvars, static_vars)
 
         return output
 
     return func
+
+
+class _WrappedFunc_old:
+    def __init__(self, func, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        vars, static_vars = eqx.partition((self.args, self.kwargs), _filter_ptvars)
+        self.vars = vars
+        self.static_vars = static_vars
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        func_internal = self.func(*self.args, **self.kwargs)
+
+        return func_internal(*args, **kwargs)
+
+    def get_vars(self):
+        return self.vars
+
+    def set_vars(self, vars):
+        self.vars = vars
+        self.args, self.kwargs = eqx.combine(self.vars, self.static_vars)
+
+    def get_func_with_vars(self, vars):
+        args, kwargs = eqx.combine(vars, self.static_vars)
+        return self.func(*args, **kwargs)
+
+
+class _WrappedFunc:
+    def __init__(self, func, *args, **kwargs):
+        print(f"Created wrapped func: {func}, {args}, {kwargs}")
+        pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
+        self.pt_vars = pt_vars
+        self.static_vars = static_vars
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+
+    def get_pt_vars(self):
+        return self.pt_vars
+
+    def get_func(self):
+        return self.func
+
+
+def jax2pyfunc(func_gen):
+    """Return a pytensor function from a jax jittable function."""
+
+    @ft.wraps(func_gen)
+    def func_gen_wrapper(*args, **kwargs):
+        return _WrappedFunc(func_gen, *args, **kwargs)
+
+    return func_gen_wrapper
+
+
+def _get_vjp_sol_op_jax(jaxfunc, len_gz):
+    def vjp_sol_op_jax(args):
+        y0 = args[:-len_gz]
+        gz = args[-len_gz:]
+        if len(gz) == 1:
+            gz = gz[0]
+        func = lambda *inputs: jaxfunc(inputs)
+        primals, vjp_fn = jax.vjp(func, *y0)
+        gz = tree_map(
+            lambda g, primal: jnp.broadcast_to(g, jnp.shape(primal)),
+            gz,
+            primals,
+        )
+        if len(y0) == 1:
+            return vjp_fn(gz)[0]
+        else:
+            return tuple(vjp_fn(gz))
+
+    return vjp_sol_op_jax
+
+
+def _partition_jaxfunc(jaxfunc, static_vars, func_vars):
+    """Partition the jax function into static and non-static variables.
+
+    Returns a function that accepts only non-static variables and returns the non-static
+    variables. The returned static variables are stored in a dictionary and returned,
+    to allow the referencing after creating the function
+    """
+    static_out_dic = {"out": None}
+
+    def jaxfunc_partitioned(vars):
+        vars = vars["vars"]
+        funcs = tree_map(lambda x: x.get_func(), func_vars)
+        args, kwargs = eqx.combine(vars, static_vars, funcs)
+
+        out = jaxfunc(*args, **kwargs)
+        outvars, static_out = eqx.partition(
+            out,
+            eqx.is_array,
+        )
+        static_out_dic["out"] = static_out
+        return outvars
+
+    return jaxfunc_partitioned, static_out_dic
+
+
+### Construct the function that accepts flat inputs and returns flat outputs.
+def _flatten_func(jaxfunc, vars_treedef):
+    def func_flattened(vars_flat):
+        # jax.debug.print("vars flat: {}", vars_flat)
+        vars = tree_unflatten(vars_treedef, vars_flat)
+        # jax.debug.print("vars: {}", vars)
+        outvars = jaxfunc(vars)
+        outvars_flat, _ = tree_flatten(outvars)
+        # jax.debug.print("outvars flat: {}", outvars_flat)
+        return _normalize_flat_output(outvars_flat)
+
+    return func_flattened
 
 
 def _flattened_input_func(
