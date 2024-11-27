@@ -222,17 +222,23 @@ def test_models():
             def f_ret(t):
                 return y + t
 
-            return f_ret
+            def f_ret2(t):
+                return f_ret(t) + t**2
 
-        f = f_internal(y)
+            return f_ret, y**2, f_ret2
+
+        f, y_pow, f2 = f_internal(y)
 
         @jax2pytensor
-        def f15(x, f):
-            return x * jnp.ones(3), f(x)
+        def f15(x, dict_other):
+            f, y_pow = dict_other["func"], dict_other["y"]
+            return x * jnp.ones(3), f(x) * y_pow
 
-        out_x = f15(y, f)
+        out_x = f15(x, {"func": f, "y": y_pow})
 
-        pm.Normal("obs", out_x[1], observed=[2, 2, 2])
+        x_res = out_x[1] + f(y * 3) + f2(x)
+
+        pm.Normal("obs", x_res, observed=[2, 2, 2])
 
     return (
         model1,

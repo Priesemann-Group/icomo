@@ -122,7 +122,7 @@ def ode_models():
             solver=diffrax.Tsit5(),
         )
         pm.Normal("obs", solution.ys["I"], observed=3 * np.ones(num_points))
-        beta_t_interp = icomo.jax2pytensor(lambda f, x: f(x))(beta_t_func, t_out)
+        beta_t_interp = beta_t_func(t_out)
         pm.Deterministic("beta_t_interp", beta_t_interp)
 
     return (

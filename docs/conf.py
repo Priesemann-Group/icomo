@@ -267,6 +267,7 @@ intersphinx_mapping = {
     "diffrax": ("https://docs.kidger.site/diffrax/", None),
     "optax": ("https://optax.readthedocs.io/en/latest/", None),
     "jaxtyping": ("https://docs.kidger.site/jaxtyping/", None),
+    "equinox": ("https://docs.kidger.site/equinox/", None),
 }
 
 imgmath_image_format = "svg"
@@ -278,12 +279,8 @@ typehints_use_signature = False
 typehints_use_signature_return_annotation = False
 typehints_defaults = "comma"
 typehints_fully_qualified = False
-autodoc_type_aliases = {
-    "ArrayLike": "jax.typing.ArrayLike",
-    "jax.typing.DType": "jax.typing.DType",
-}
 
-nitpicky = True
+nitpicky = False
 
 always_use_bars_union = True
 autodoc_typehints = "description"

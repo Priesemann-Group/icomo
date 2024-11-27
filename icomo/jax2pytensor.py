@@ -21,7 +21,11 @@ _filter_ptvars = lambda x: isinstance(x, pt.Variable)
 
 
 def jax2pytensor(jaxfunc, name=None):
-    """Return a pytensor from a jax jittable function.
+    """Return a Pytensor from a JAX jittable function.
+
+    This decorator transforms any JAX jittable function into a function that accepts
+    and returns `pytensor.Variables`. The jax jittable function can accept any
+    nested python structure (pytrees) as input, and return any nested Python structure.
 
     It requires to define the output types of the returned values as pytensor types. A
     unique name should also be passed in case the name of the jaxfunc is identical to
@@ -33,16 +37,16 @@ def jax2pytensor(jaxfunc, name=None):
     jaxfunc : jax jittable function
         function for which the node is created, can return multiple tensors as a tuple.
         It is required that all return values are able to transformed to
-        pytensor.TensorVariable.
+        pytensor.Variable.
     name: str
         Name of the created pytensor Op, defaults to the name of the passed function.
         Only used internally in the pytensor graph.
 
     Returns
     -------
-        A Pytensor Op which can be used in a pm.Model as function, is differentiable
+        A function which can be used in a pymc.Model as function, is differentiable
         and the resulting model can be compiled either with the default C backend, or
-        the jax backend.
+        the JAX backend.
 
     Examples
     --------
@@ -70,12 +74,12 @@ def jax2pytensor(jaxfunc, name=None):
     >>> with pm.Model() as model:
     ...     arg1 = pm.HalfNormal("arg1")
     ...     arg1 = pm.math.clip(arg1,0.1,10)
-    ...     f1 = lambda x: 1/x
-    ...     f2 = lambda x, arg1: jnp.log(x*arg1)
+    ...     f1 = lambda x, arg1: jnp.log(x*arg1)
+    ...     f2 = lambda x: 1/x
     ...     @icomo.jax2pytensor
     ...     def find_intersection(funcs, arg1):
     ...         f1, f2 = funcs["f1"], funcs["f2"]
-    ...         loss = lambda x, _: (f1(x) - f2(x,arg1))**2
+    ...         loss = lambda x, _: (f1(x, arg1) - f2(x))**2
     ...               # Loss is squared to make it more convex
     ...         res = optimistix.minimise(fn = loss,
     ...                                   solver=optimistix.BFGS(rtol=1e-8, atol=1e-8),
@@ -91,20 +95,21 @@ def jax2pytensor(jaxfunc, name=None):
     >>> print(f"Std. int. = {np.round(np.std(trace.posterior['inters'].to_numpy()),1)}")
     Std. int. = 0.1
 
-    The jax computations can also be splitted, like in the following example. The
-    function f2 is created in a separate function, and then passed to the main function.
+    Jax2pytensor also wraps returned functions from transformed functions, such that
+    they can be used either in another transformed function, or evaluated directly to
+    obtain the pytensor result:
 
     >>> with pm.Model() as model:
     ...     arg1 = pm.HalfNormal("arg1")
     ...     arg1 = pm.math.clip(arg1,0.1,10)
-    ...     f1 = lambda x: 1/x
-    ...
     ...     @icomo.jax2pytensor
-    ...     def f2_creator(arg1):
+    ...     def f1_creator(arg1):
     ...         def f_log(x):
     ...             return jnp.log(x*arg1)
     ...         return f_log
-    ...     f2 = f2_creator(arg1)
+    ...     f1 = f1_creator(arg1)
+    ...
+    ...     f2 = lambda x: 1/x
     ...
     ...     @icomo.jax2pytensor
     ...     def find_intersection(f1, f2):
@@ -114,26 +119,55 @@ def jax2pytensor(jaxfunc, name=None):
     ...                                   y0=3.)
     ...         return res
     ...
+    ...     # Pass wrapped f2 function to find_intersection, it creates a pytensor op
+    ...     # that also includes arg1 as its input.
     ...     intersection_res = find_intersection(f1, f2)
     ...     intersection = pm.Deterministic("inters", intersection_res.value)
+    ...
+    ...     # Or evaluate f2 directly
     ...     log_var = pm.Deterministic("log_var", f2(intersection))
     ...     obs = pm.Normal("obs", mu=intersection, sigma=0.1, observed=3)
-    >>> trace = pm.sample(model = model, nuts_sampler="numpyro") # doctest: +ELLIPSIS
+    >>> trace = pm.sample(model = model, nuts_sampler="numpyro")   # doctest: +ELLIPSIS
     >>> print(f"Inters. = {np.round(np.mean(trace.posterior['inters'].to_numpy()),1)}")
     Inters. = 3.0
     >>> print(f"Std. int. = {np.round(np.std(trace.posterior['inters'].to_numpy()),1)}")
     Std. int. = 0.1
+    >>> print(f"log_var = {np.round(np.mean(trace.posterior['log_var'].to_numpy()),1)}")
+    log_var = 0.3
+    >>> # It also works with the default sampler backend
+    >>> trc2 = pm.sample(model = model, cores=1, progressbar=False) # doctest: +ELLIPSIS
+    >>> print(f"log_var = {np.round(np.mean(trc2.posterior['log_var'].to_numpy()),1)}")
+    log_var = 0.3
 
+    This feature of wrapping returned functions hasn't been tested extensively,
+    so please report any issues you might encounter.
+
+    Notes
+    -----
+    The function is based on a blog post by Ricardo Vieira and Adrian Seyboldt,
+    available at
+    `pymc-labls.io <https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick
+    -examples/>`__.
+    To accept functions and non pytensor variables as input, the function make use
+    of :func:`equinox.partition` and :func:`equinox.combine` to split and combine the
+    variables. Shapes are inferred using
+    :func:`pytensor.compile.builders.infer_shape` and :func:`jax.eval_shape`.
     """
 
     def func(*args, **kwargs):
         """Return a pytensor from a jax jittable function."""
-        ### Construct the function to return that is compatible with pytensor but has
-        ### the same signature as the jax function.
-        # pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
+        ### Split variables: in the ones that will be transformed to JAX inputs,
+        ### pytensor.Variables; _WrappedFunc, that are functions that have been returned
+        ### from a transformed function; and the rest, static variables that are not
+        ### transformed.
+
         pt_vars, static_vars_tmp = eqx.partition(
             (args, kwargs), _filter_ptvars, is_leaf=callable
         )
+        # is_leaf=callable is used, as libraries like diffrax or equinox might return
+        # functions that are still seen as a nested pytree structure. We consider them
+        # as wrappable functions, that will be wrapped with _WrappedFunc.
+
         func_vars, static_vars = eqx.partition(
             static_vars_tmp, lambda x: isinstance(x, _WrappedFunc), is_leaf=callable
         )
@@ -260,6 +294,8 @@ class _WrappedFunc:
         self.exterior_func = exterior_func
 
     def __call__(self, *args, **kwargs):
+        # If called, assume that args and kwargs are pytensors, so return the result
+        # as pytensors.
         def f(func, *args, **kwargs):
             res = func(*args, **kwargs)
             return res
@@ -269,13 +305,11 @@ class _WrappedFunc:
     def get_vars(self):
         return self.vars
 
-    def set_vars(self, vars):
-        self.vars = vars
-        self.args, self.kwargs = eqx.combine(
-            self.vars, self.static_vars, is_leaf=callable
-        )
-
     def get_func_with_vars(self, vars):
+        # Use other variables than the saved ones, to generate the function. This
+        # is used to transform vars externally from pytensor to JAX, and use the
+        # then create the function which is returned.
+
         args, kwargs = eqx.combine(vars, self.static_vars, is_leaf=callable)
         output = self.exterior_func(*args, **kwargs)
         outfuncs, _ = eqx.partition(output, callable, is_leaf=callable)
@@ -311,6 +345,9 @@ def _partition_jaxfunc(jaxfunc, static_vars, func_vars):
     Returns a function that accepts only non-static variables and returns the non-static
     variables. The returned static variables are stored in a dictionary and returned,
     to allow the referencing after creating the function
+
+    Additionally wrapped functions saved in func_vars are regenerated with
+    vars["vars_from_func"] as input, to allow the transformation of the variables.
     """
     static_out_dic = {"out": None}
 
