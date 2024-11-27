@@ -24,8 +24,8 @@ class CompModel:
     Parameters
     ----------
     y_dict: PyTree[ArrayLike]
-        Dictionary of compartments. Keys are the names of the compartments and
-        values are floats or ndarrays that represent their value.
+        Dictionary/nested python structure of compartments. Keys are the names of the
+        compartments and values are ``jax.numpy.arrays`` that represent their value.
 
     Attributes
     ----------

@@ -9,6 +9,12 @@ terminal:
 $ pip install icomo
 ```
 
+To run all the examples, you might also want to install the optional dependencies:
+
+```bash
+$ pip install icomo[opt]
+```
+
 You might want to create a virtual environment first, e.g. using
 [mamba](https://mamba.readthedocs.io/en/latest/mamba-installation.html):
 
@@ -25,8 +31,6 @@ $ source /path/to/new/icomo_env/bin/activate
 $ pip install icomo
 ```
 
-This is the preferred method to install icomo,
-as it will always install the most recent stable release.
 You might also want to install [jupyterlab](https://jupyter.org) to run the examples:
 
 ```bash
@@ -52,3 +56,9 @@ $ pip install -e .
 ```
 This enables you to edit the code and have the changes directly available in your python
 environment.
+To include the optional and development dependencies, use:
+
+```bash
+$ cd icomo
+$ pip install -e .[dev]
+```

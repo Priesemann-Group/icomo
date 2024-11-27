@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 
+
 .DEFAULT_GOAL := help
 
 # RELEASE_APP=npx --yes \
@@ -68,16 +69,23 @@ test: ## run tests quickly with the default Python
 .PHONY: test-latest
 test-latest:
 	uv venv .venv_test_setup
-	uv pip install -e . --upgrade
-	uv pip install -e .[dev]
-	source .venv_test_setup/bin/activate
-	pytest -n auto
-	uv pip compile pyproject.toml --upgrade -o requirements.txt --quiet
-	@echo "---------------------------------------"
-	@echo "---Requirements.txt has been updated---"
-	@echo "---------------------------------------"
+	source .venv_test_setup/bin/activate && \
+	uv pip install -e . --upgrade && \
+	python -c "import icomo" && \  # check if dependencies are correctly installed
+	uv pip install -e .[dev] && \
+	pytest -n auto && \
+	uv pip compile pyproject.toml --upgrade -o requirements.txt --quiet && \
+	echo "---------------------------------------" && \
+	echo "---Requirements.txt has been updated---" && \
+	echo "---------------------------------------" && \
 	deactivate
 
+.PHONY: clean-test-latest
+remove-test-venv:
+	rm -r .venv_test_setup
+
+.PHONY: clean-test-latest
+clean-test-latest: remove-test-venv  test-latest
 
 
 .PHONY:docs-build
