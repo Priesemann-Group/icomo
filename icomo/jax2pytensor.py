@@ -131,9 +131,11 @@ def jax2pytensor(jaxfunc, name=None):
         ### Construct the function to return that is compatible with pytensor but has
         ### the same signature as the jax function.
         # pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
-        pt_vars, static_vars_tmp = eqx.partition((args, kwargs), _filter_ptvars)
+        pt_vars, static_vars_tmp = eqx.partition(
+            (args, kwargs), _filter_ptvars, is_leaf=callable
+        )
         func_vars, static_vars = eqx.partition(
-            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc_old)
+            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc), is_leaf=callable
         )
         vars_from_func = tree_map(lambda x: x.get_vars(), func_vars)
         pt_vars = dict(vars=pt_vars, vars_from_func=vars_from_func)
@@ -216,41 +218,43 @@ def jax2pytensor(jaxfunc, name=None):
             return local_op.vjp_sol_op.perform_jax
 
         ### Evaluate the Pytensor Op and return unflattened results
-        # print("pt_vars_flat: ", pt_vars_flat)
         output_flat = local_op(*pt_vars_flat)
         if not isinstance(output_flat, Sequence):
             output_flat = [output_flat]  # tree_unflatten expects a sequence.
         outvars = tree_unflatten(outvars_treedef, output_flat)
 
         static_outfuncs, static_outvars = eqx.partition(
-            static_out_dic["out"], lambda x: callable(x)
+            static_out_dic["out"], callable, is_leaf=callable
         )
+
         static_outfuncs_flat, treedef_outfuncs = jax.tree_util.tree_flatten(
-            static_outfuncs
+            static_outfuncs, is_leaf=callable
         )
         for i_func, _ in enumerate(static_outfuncs_flat):
-            static_outfuncs_flat[i_func] = _WrappedFunc_old(
+            static_outfuncs_flat[i_func] = _WrappedFunc(
                 jaxfunc, i_func, *args, **kwargs
             )
 
         static_outfuncs = jax.tree_util.tree_unflatten(
             treedef_outfuncs, static_outfuncs_flat
         )
-        static_vars = eqx.combine(static_outfuncs, static_outvars)
+        static_vars = eqx.combine(static_outfuncs, static_outvars, is_leaf=callable)
 
-        output = eqx.combine(outvars, static_vars)
+        output = eqx.combine(outvars, static_vars, is_leaf=callable)
 
         return output
 
     return func
 
 
-class _WrappedFunc_old:
+class _WrappedFunc:
     def __init__(self, exterior_func, i_func, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
         self.i_func = i_func
-        vars, static_vars = eqx.partition((self.args, self.kwargs), _filter_ptvars)
+        vars, static_vars = eqx.partition(
+            (self.args, self.kwargs), _filter_ptvars, is_leaf=callable
+        )
         self.vars = vars
         self.static_vars = static_vars
         self.exterior_func = exterior_func
@@ -261,73 +265,23 @@ class _WrappedFunc_old:
             return res
 
         return jax2pytensor(f)(self, *args, **kwargs)
-        """
-        output = jax2pytensor(self.exterior_func)
-
-        def eval_internal_func(*args, **kwargs):
-            output = jax2pytensor(self.exterior_func)(*self.args, **self.kwargs)
-            outfuncs, _ = eqx.partition(output, callable)
-            outfuncs_flat, _ = jax.tree_util.tree_flatten(outfuncs)
-            interior_func = outfuncs_flat[self.i_func]
-            return interior_func(*args, **kwargs)
-
-        return interior_func(*args, **kwargs)
-
-        return jax2pytensor(f)(self, *args, **kwargs)
-
-        output = self.exterior_func(*self.args, **self.kwargs)
-        static_outfuncs, static_outvars = eqx.partition(
-            static_out_dic["out"], lambda x: callable(x)
-        )
-        static_outfuncs_flat, treedef_outfuncs = jax.tree_util.tree_flatten(
-            static_outfuncs
-        )
-
-        return func_internal(*args, **kwargs)
-        """
 
     def get_vars(self):
         return self.vars
 
     def set_vars(self, vars):
         self.vars = vars
-        self.args, self.kwargs = eqx.combine(self.vars, self.static_vars)
+        self.args, self.kwargs = eqx.combine(
+            self.vars, self.static_vars, is_leaf=callable
+        )
 
     def get_func_with_vars(self, vars):
-        args, kwargs = eqx.combine(vars, self.static_vars)
+        args, kwargs = eqx.combine(vars, self.static_vars, is_leaf=callable)
         output = self.exterior_func(*args, **kwargs)
-        outfuncs, _ = eqx.partition(output, callable)
-        outfuncs_flat, _ = jax.tree_util.tree_flatten(outfuncs)
+        outfuncs, _ = eqx.partition(output, callable, is_leaf=callable)
+        outfuncs_flat, _ = jax.tree_util.tree_flatten(outfuncs, is_leaf=callable)
         interior_func = outfuncs_flat[self.i_func]
         return interior_func
-
-
-class _WrappedFunc:
-    def __init__(self, func, *args, **kwargs):
-        print(f"Created wrapped func: {func}, {args}, {kwargs}")
-        pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
-        self.pt_vars = pt_vars
-        self.static_vars = static_vars
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
-
-    def get_pt_vars(self):
-        return self.pt_vars
-
-    def get_func(self):
-        return self.func
-
-
-def jax2pyfunc(func_gen):
-    """Return a pytensor function from a jax jittable function."""
-
-    @ft.wraps(func_gen)
-    def func_gen_wrapper(*args, **kwargs):
-        return _WrappedFunc(func_gen, *args, **kwargs)
-
-    return func_gen_wrapper
 
 
 def _get_vjp_sol_op_jax(jaxfunc, len_gz):
@@ -365,13 +319,12 @@ def _partition_jaxfunc(jaxfunc, static_vars, func_vars):
         func_vars_evaled = tree_map(
             lambda x, y: x.get_func_with_vars(y), func_vars, vars_from_func
         )
-        args, kwargs = eqx.combine(vars, static_vars, func_vars_evaled)
+        args, kwargs = eqx.combine(
+            vars, static_vars, func_vars_evaled, is_leaf=callable
+        )
 
         out = jaxfunc(*args, **kwargs)
-        outvars, static_out = eqx.partition(
-            out,
-            eqx.is_array,
-        )
+        outvars, static_out = eqx.partition(out, eqx.is_array, is_leaf=callable)
         static_out_dic["out"] = static_out
         return outvars
 
@@ -381,61 +334,12 @@ def _partition_jaxfunc(jaxfunc, static_vars, func_vars):
 ### Construct the function that accepts flat inputs and returns flat outputs.
 def _flatten_func(jaxfunc, vars_treedef):
     def func_flattened(vars_flat):
-        # jax.debug.print("vars flat: {}", vars_flat)
         vars = tree_unflatten(vars_treedef, vars_flat)
-        # jax.debug.print("vars: {}", vars)
         outvars = jaxfunc(vars)
         outvars_flat, _ = tree_flatten(outvars)
-        # jax.debug.print("outvars flat: {}", outvars_flat)
         return _normalize_flat_output(outvars_flat)
 
     return func_flattened
-
-
-def _flattened_input_func(
-    func, input_treedef, inputnames_list, other_args_dic, flatten_output=True
-):
-    """Build a function that accepts flat inputs and returns flat outputs.
-
-    Returns a function that accepts flattened inputs, and optionnially returns flattened
-    outputs. The function is used to create a Pytensor Op, as Pytensor requires a
-    flat inputs and outputs.
-
-    Parameters
-    ----------
-    func : function
-        function to be converted that accepts non-flat inputs
-    input_treedef : treedef
-        treedef of the inputs, as returned by jax.tree_util.tree_flatten
-    inputnames_list : list of str
-        parameter names of the inputs
-    other_args_dic : dict
-        dictionary of other arguments that are not inputs for the graph. Aren't affected
-        by the flattening.
-    flatten_output : bool
-        whether the output should be flattened or not. Default is True.
-
-    Returns
-    -------
-    function
-        function that accepts flat inputs and optionally returns flat outputs.
-    """
-
-    def new_func(inputs_list_flat):
-        inputs_for_graph = tree_unflatten(input_treedef, inputs_list_flat)
-        inputs_for_graph = tree_map(lambda x: jnp.array(x), inputs_for_graph)
-        inputs_for_graph_dic = {
-            arg: val
-            for arg, val in zip(inputnames_list, inputs_for_graph, strict=False)
-        }
-        results = func(**inputs_for_graph_dic, **other_args_dic)
-        if not flatten_output:
-            return results
-        else:
-            results, output_treedef_local = tree_flatten(results)
-            return _normalize_flat_output(results)
-
-    return new_func
 
 
 def _normalize_flat_output(output):
@@ -468,8 +372,6 @@ def _return_pytensor_ops_classes(name):
             self.jitted_vjp_sol_op_jax = jitted_vjp_sol_op_jax
 
         def make_node(self, *inputs):
-            # print("make_node inputs: ", inputs)
-
             self.num_inputs = len(inputs)
 
             # Define our output variables
@@ -481,12 +383,10 @@ def _return_pytensor_ops_classes(name):
                 self.input_types,
                 self.jitted_vjp_sol_op_jax,
             )
-            # print("make_node outputs: ", outputs)
 
             return Apply(self, inputs, outputs)
 
         def perform(self, node, inputs, outputs):
-            # print("perform inputs: ", inputs)
             results = self.jitted_sol_op_jax(inputs)
             if self.num_outputs > 1:
                 for i in range(self.num_outputs):
