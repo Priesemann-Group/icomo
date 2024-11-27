@@ -18,8 +18,8 @@ packages like [JAX](https://jax.readthedocs.io/en/latest/),
 compartmental models.
 
 
-A central part of the toolbox, is the possibility to wrap JAX functions to be
-used in PyMC models (see [here](api/jax2pytensor)) which
+A central part of the toolbox is the possibility to wrap JAX functions to be
+used in PyMC models (see [here](api/jax2pytensor)), which
 is used tro wrap the Diffrax ODE solvers, but might be also useful for other projects.
 
 ## Features

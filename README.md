@@ -16,8 +16,9 @@ packages like [JAX](https://jax.readthedocs.io/en/latest/),
 [PyMC](https://www.pymc.io/welcome.html) to build, automatically differentiate and fit
 compartmental models.
 
-A central part of the toolbox, is the possibility to wrap JAX functions to be
-used in PyMC models (see [here](https://icomo.readthedocs.io/en/stable/api/jax2pytensor.html)) which
+A central part of the toolbox is the possibility to wrap JAX functions to be
+used in PyMC models (see [here](https://icomo.readthedocs.
+io/en/stable/api/jax2pytensor.html)), which
 is used tro wrap the [Diffrax ODE solvers](https://docs.kidger.site/diffrax/api/diffeqsolve/), but might be also useful for other
 projects.
 
