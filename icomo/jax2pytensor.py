@@ -48,10 +48,10 @@ def jax2pytensor(jaxfunc, name=None):
     --------
     A simple example on how the :func:`jax.numpy.sum` function is used in a PyMC model.
 
-    >>> import jax.numpy as jnp
-    >>> import pymc as pm
-    >>> import icomo
-    >>> import numpyro
+    >>> import jax.numpy as jnp                                # doctest: +ELLIPSIS
+    >>> import pymc as pm                                      # doctest: +ELLIPSIS
+    >>> import icomo                                           # doctest: +ELLIPSIS
+    >>> import numpyro                                         # doctest: +ELLIPSIS
     >>> numpyro.set_host_device_count(4)
     >>> with pm.Model() as model:
     ...     x = pm.Normal("input", mu=1, size=3)
@@ -71,12 +71,6 @@ def jax2pytensor(jaxfunc, name=None):
     ...     arg1 = pm.HalfNormal("arg1")
     ...     arg1 = pm.math.clip(arg1,0.1,10)
     ...     f1 = lambda x: 1/x
-    ...
-    ...     #@icomo.jax2pytensor
-    ...     #def f2_creator(arg1):
-    ...     #    f_log = lambda x: jnp.log(x) - arg1
-    ...     #    return f_log
-    ...     #f2 = f2_creator(arg1)
     ...     f2 = lambda x, arg1: jnp.log(x*arg1)
     ...     @icomo.jax2pytensor
     ...     def find_intersection(funcs, arg1):
@@ -108,33 +102,27 @@ def jax2pytensor(jaxfunc, name=None):
     ...     @icomo.jax2pytensor
     ...     def f2_creator(arg1):
     ...         def f_log(x):
-    ...             jax.debug.print("arg1: {}", arg1)
-    ...             jax.debug.print("x: {}", x)
-    ...             return jnp.log(x*arg1+1)
+    ...             return jnp.log(x*arg1)
     ...         return f_log
     ...     f2 = f2_creator(arg1)
     ...
     ...     @icomo.jax2pytensor
     ...     def find_intersection(f1, f2):
-    ...         loss = lambda x, _: (f1(x) + f2(x))**2
-    ...         def loss(x,_):
-    ...               loss = (f1(x) + f2(x))**2
-    ...               jax.debug.print("loss: {}", loss)
-    ...               return loss
-    ...               # Loss is squared to make it more convex
+    ...         loss = lambda x, _: (f1(x) - f2(x))**2
     ...         res = optimistix.minimise(fn = loss,
-    ...                                   solver=optimistix.BFGS(rtol=1e-3, atol=1e-3),
+    ...                                   solver=optimistix.BFGS(rtol=1e-8, atol=1e-8),
     ...                                   y0=3.)
     ...         return res
     ...
     ...     intersection_res = find_intersection(f1, f2)
     ...     intersection = pm.Deterministic("inters", intersection_res.value)
+    ...     log_var = pm.Deterministic("log_var", f2(intersection))
     ...     obs = pm.Normal("obs", mu=intersection, sigma=0.1, observed=3)
     >>> trace = pm.sample(model = model, nuts_sampler="numpyro") # doctest: +ELLIPSIS
     >>> print(f"Inters. = {np.round(np.mean(trace.posterior['inters'].to_numpy()),1)}")
-    Inters. = 1.8
+    Inters. = 3.0
     >>> print(f"Std. int. = {np.round(np.std(trace.posterior['inters'].to_numpy()),1)}")
-    Std. int. = 0.0
+    Std. int. = 0.1
 
     """
 
@@ -145,9 +133,9 @@ def jax2pytensor(jaxfunc, name=None):
         # pt_vars, static_vars = eqx.partition((args, kwargs), _filter_ptvars)
         pt_vars, static_vars_tmp = eqx.partition((args, kwargs), _filter_ptvars)
         func_vars, static_vars = eqx.partition(
-            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc)
+            static_vars_tmp, lambda x: isinstance(x, _WrappedFunc_old)
         )
-        vars_from_func = tree_map(lambda x: x.get_pt_vars(), func_vars)
+        vars_from_func = tree_map(lambda x: x.get_vars(), func_vars)
         pt_vars = dict(vars=pt_vars, vars_from_func=vars_from_func)
         """
         def func_unwrapped(vars_all, static_vars):
@@ -237,8 +225,16 @@ def jax2pytensor(jaxfunc, name=None):
         static_outfuncs, static_outvars = eqx.partition(
             static_out_dic["out"], lambda x: callable(x)
         )
-        static_outfuncs = jax.tree_util.tree_map(
-            lambda x: _WrappedFunc(x, *args, **kwargs), static_outfuncs
+        static_outfuncs_flat, treedef_outfuncs = jax.tree_util.tree_flatten(
+            static_outfuncs
+        )
+        for i_func, _ in enumerate(static_outfuncs_flat):
+            static_outfuncs_flat[i_func] = _WrappedFunc_old(
+                jaxfunc, i_func, *args, **kwargs
+            )
+
+        static_outfuncs = jax.tree_util.tree_unflatten(
+            treedef_outfuncs, static_outfuncs_flat
         )
         static_vars = eqx.combine(static_outfuncs, static_outvars)
 
@@ -250,18 +246,45 @@ def jax2pytensor(jaxfunc, name=None):
 
 
 class _WrappedFunc_old:
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, exterior_func, i_func, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+        self.i_func = i_func
         vars, static_vars = eqx.partition((self.args, self.kwargs), _filter_ptvars)
         self.vars = vars
         self.static_vars = static_vars
-        self.func = func
+        self.exterior_func = exterior_func
 
     def __call__(self, *args, **kwargs):
-        func_internal = self.func(*self.args, **self.kwargs)
+        def f(func, *args, **kwargs):
+            res = func(*args, **kwargs)
+            return res
+
+        return jax2pytensor(f)(self, *args, **kwargs)
+        """
+        output = jax2pytensor(self.exterior_func)
+
+        def eval_internal_func(*args, **kwargs):
+            output = jax2pytensor(self.exterior_func)(*self.args, **self.kwargs)
+            outfuncs, _ = eqx.partition(output, callable)
+            outfuncs_flat, _ = jax.tree_util.tree_flatten(outfuncs)
+            interior_func = outfuncs_flat[self.i_func]
+            return interior_func(*args, **kwargs)
+
+        return interior_func(*args, **kwargs)
+
+        return jax2pytensor(f)(self, *args, **kwargs)
+
+        output = self.exterior_func(*self.args, **self.kwargs)
+        static_outfuncs, static_outvars = eqx.partition(
+            static_out_dic["out"], lambda x: callable(x)
+        )
+        static_outfuncs_flat, treedef_outfuncs = jax.tree_util.tree_flatten(
+            static_outfuncs
+        )
 
         return func_internal(*args, **kwargs)
+        """
 
     def get_vars(self):
         return self.vars
@@ -272,7 +295,11 @@ class _WrappedFunc_old:
 
     def get_func_with_vars(self, vars):
         args, kwargs = eqx.combine(vars, self.static_vars)
-        return self.func(*args, **kwargs)
+        output = self.exterior_func(*args, **kwargs)
+        outfuncs, _ = eqx.partition(output, callable)
+        outfuncs_flat, _ = jax.tree_util.tree_flatten(outfuncs)
+        interior_func = outfuncs_flat[self.i_func]
+        return interior_func
 
 
 class _WrappedFunc:
@@ -334,9 +361,11 @@ def _partition_jaxfunc(jaxfunc, static_vars, func_vars):
     static_out_dic = {"out": None}
 
     def jaxfunc_partitioned(vars):
-        vars = vars["vars"]
-        funcs = tree_map(lambda x: x.get_func(), func_vars)
-        args, kwargs = eqx.combine(vars, static_vars, funcs)
+        vars, vars_from_func = vars["vars"], vars["vars_from_func"]
+        func_vars_evaled = tree_map(
+            lambda x, y: x.get_func_with_vars(y), func_vars, vars_from_func
+        )
+        args, kwargs = eqx.combine(vars, static_vars, func_vars_evaled)
 
         out = jaxfunc(*args, **kwargs)
         outvars, static_out = eqx.partition(
