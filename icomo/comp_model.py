@@ -279,7 +279,11 @@ def delayed_copy_kernel(
     """
     length = jnp.shape(delayed_comp)[-1]
     inflow = initial_comp / tau_delay * length
-    d_delayed_vars, outflow = erlang_kernel(inflow, delayed_comp[:], 1 / tau_delay)
+    d_delayed_vars, outflow = erlang_kernel(
+        comp=delayed_comp[:],
+        rate=1 / tau_delay,
+        inflow=inflow,
+    )
     return d_delayed_vars
 
 
