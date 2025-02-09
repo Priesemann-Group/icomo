@@ -1,3 +1,6 @@
+SHELL := /bin/bash
+
+
 .DEFAULT_GOAL := help
 
 # RELEASE_APP=npx --yes \
@@ -56,12 +59,39 @@ lint: ## lint the project
 
 .PHONY: test
 test: ## run tests quickly with the default Python
-	pytest
+	pytest -n auto
+
+
+## run tests quickly with the latest packages, install uv before running this command
+## uv doesn't have the same dependency resolution behavior as pip, so it may not lead
+## to the same result as running `pip install -e .[dev]`, which is performed by
+## CI of github.
+.PHONY: test-latest
+test-latest:
+	uv venv .venv_test_setup
+	source .venv_test_setup/bin/activate && \
+	uv pip install -e . --upgrade && \
+	python -c "import icomo" && \  # check if dependencies are correctly installed
+	uv pip install -e .[dev] && \
+	pytest -n auto && \
+	uv pip compile pyproject.toml --upgrade -o requirements.txt --quiet && \
+	echo "---------------------------------------" && \
+	echo "---Requirements.txt has been updated---" && \
+	echo "---------------------------------------" && \
+	deactivate
+
+.PHONY: clean-test-latest
+remove-test-venv:
+	rm -r .venv_test_setup
+
+.PHONY: clean-test-latest
+clean-test-latest: remove-test-venv  test-latest
+
 
 .PHONY:docs-build
 docs-build:
 	sphinx-apidoc -o docs/_build ${PACKAGE_PATH}
-	$(SPHINXBUILD) "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	$(SPHINXBUILD) "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) -P
 
 .PHONY: docs-preview
 docs-preview: docs-build

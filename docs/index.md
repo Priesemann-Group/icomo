@@ -1,11 +1,12 @@
-<div align="center">
-<img src="https://raw.githubusercontent.com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png" width="550" alt="logo"></img>
-</div>
 
+```{image} https://raw.githubusercontent.com/Priesemann-Group/icomo/main/docs/images/icomo_logo250px.png
+:alt: My Logo
+:class: logo, mainlogo, dark-light p-2
+:align: center
+:height: 160px
+```
 
-# Inference of Compartmental Models toolbox
-
-## Leverage the power of JAX libraries for PyMC models
+# Introduction of ICoMo
 
 This toolbox aims to simplify the construction of compartmental models and the inference of their parameters.
 
@@ -16,15 +17,12 @@ packages like [JAX](https://jax.readthedocs.io/en/latest/),
 [PyMC](https://www.pymc.io/welcome.html) to build, automatically differentiate and fit
 compartmental models.
 
+
 A central part of the toolbox is the possibility to wrap JAX functions to be
-used in PyMC models (see [here](https://icomo.readthedocs.
-io/en/stable/api/jax2pytensor.html)), which
-is used tro wrap the [Diffrax ODE solvers](https://docs.kidger.site/diffrax/api/diffeqsolve/), but might be also useful for other
-projects.
+used in PyMC models (see [here](api/jax2pytensor)), which
+is used tro wrap the Diffrax ODE solvers, but might be also useful for other projects.
 
-* Documentation: https://icomo.readthedocs.io.
-
-### Features
+## Features
 
 * Facilitate the construction of compartmental models by only defining flow between compartments, and
   automatically generating the corresponding ODEs.
@@ -32,10 +30,40 @@ projects.
 * Integrate the ODEs using diffrax, automatically generating the Jacobian of the parameters of the ODE
 * Fit the parameters using minimization algorithms or build a Bayesian model using PyMC.
 
-### Credits
+## Content
+
+```{toctree}
+:maxdepth: 3
+:caption: Getting started
+
+installation
+Getting started <example>
+```
+
+```{toctree}
+:maxdepth: 3
+:caption: API
+
+api/comp_model
+api/jax2pytensor
+api/diffrax_wrapper
+api/tree_tools
+api/experimental
+```
+
+```{toctree}
+:maxdepth: 3
+:caption: Contributing
+
+contributing
+```
+
+
+### Indices and tables
+
+* [Index](genindex)
+* [Search](search)
+
+## Credits
 
 Logo by [Fabian Mikulasch](https://scholar.google.com/citations?user=ZWWBIoUAAAAJ&hl=en)
-
-
-
-

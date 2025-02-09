@@ -51,34 +51,49 @@ Ready to contribute? Here’s how to set up `icomo` for local development.
 
 2.  Clone your fork locally::
 
-    $ git clone git@github.com:your_name_here/icomo.git
+```bash
+git clone git@github.com:your_name_here/icomo.git
+```
 
-3.  Install your local copy into a virtualenv. Assuming you have
-    virtualenvwrapper installed, this is how you set up your fork for
-    local development::
+3.  Make a virtual environment with your favorite tool. Then install the package
+    including dev dependencies in editable mode:
 
-    $ mkvirtualenv icomo
-    $ cd icomo/
-    $ python setup.py develop
+```bash
+cd icomo/
+pip install -e .[dev]
+```
 
-4.  Create a branch for local development::
+4. Install pre-commit hooks:
 
-    $ git checkout -b name-of-your-bugfix-or-feature
+```bash
+pre-commit install
+```
 
-    Now you can make your changes locally.
+5. Create a branch for local development::
 
-5.  When you’re done making changes, check that your changes pass flake8
-    and the tests, including testing other Python versions with tox::
+```bash
+git checkout -b name-of-your-bugfix-or-feature
+```
 
-    $ make lint
-    $ make test
+Now you can make your changes locally.
 
-    To get flake8 and tox, just pip install them into your virtualenv.
+6. When you’re done making changes, check that your passes the linter and formatter,
+   the code passes all tests, and the documentation builds correctly:
+
+```bash
+pre-commit run --all-files
+pytest
+make docs-preview
+```
+
 
 6.  Commit your changes and push your branch to GitHub::
 
-    $ git add . $ git commit -m “Your detailed description of your
-    changes.” $ git push origin name-of-your-bugfix-or-feature
+```bash
+git add .
+git commit -m "Your detailed description of your changes."
+git push origin name-of-your-bugfix-or-feature
+```
 
 7.  Submit a pull request through the GitHub website.
 
@@ -88,9 +103,7 @@ Before you submit a pull request, check that it meets these guidelines:
 
 1.  The pull request should include tests.
 2.  If the pull request adds functionality, the docs should be updated.
-    Put your new functionality into a function with a docstring, and add
-    the feature to the list in README.rst.
-3.  The pull request should work for Python >= 3.8.
+    Put your new functionality into a function with a docstring. 
 
 <!---
 
@@ -98,7 +111,7 @@ Before you submit a pull request, check that it meets these guidelines:
 
 To run a subset of tests::
 ```
-$ pytest tests.test_icomo
+pytest tests.test_icomo
 ```
 
 
