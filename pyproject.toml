@@ -20,7 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 dynamic = ["version"]
-requires-python = '>=3.10, <3.13'
+requires-python = '>=3.10'
 dependencies = [
     "pymc == 5.*",
     "equinox",
@@ -107,7 +107,7 @@ packages = ["icomo"]
 write_to = "icomo/_version.py"
 
 [tool.uv]
-constraint-dependencies = ["numpy<2"]
+# constraint-dependencies = ["numpy<2"]
 
 
 

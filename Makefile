@@ -71,7 +71,7 @@ test-latest:
 	uv venv .venv_test_setup
 	source .venv_test_setup/bin/activate && \
 	uv pip install -e . --upgrade && \
-	python -c "import icomo" && \  # check if dependencies are correctly installed
+	python -c "import icomo" && \
 	uv pip install -e .[dev] && \
 	pytest -n auto && \
 	uv pip compile pyproject.toml --upgrade -o requirements.txt --quiet && \

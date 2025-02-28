@@ -85,9 +85,11 @@ pre-commit run --all-files
 pytest
 make docs-preview
 ```
+Look inside the `Makefile` for more commands. For instance, `make test-latest` will
+run the tests with the latest version of the dependencies.
 
 
-6.  Commit your changes and push your branch to GitHub::
+7. Commit your changes and push your branch to GitHub::
 
 ```bash
 git add .
@@ -95,7 +97,7 @@ git commit -m "Your detailed description of your changes."
 git push origin name-of-your-bugfix-or-feature
 ```
 
-7.  Submit a pull request through the GitHub website.
+8. Submit a pull request through the GitHub website.
 
 ## Pull Request Guidelines
 
@@ -103,7 +105,7 @@ Before you submit a pull request, check that it meets these guidelines:
 
 1.  The pull request should include tests.
 2.  If the pull request adds functionality, the docs should be updated.
-    Put your new functionality into a function with a docstring. 
+    Put your new functionality into a function with a docstring.
 
 <!---
 
