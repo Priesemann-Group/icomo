@@ -38,6 +38,7 @@ is used tro wrap the Diffrax ODE solvers, but might be also useful for other pro
 
 installation
 Getting started <example>
+Delaying flows <erlang_kernel>
 ```
 
 ```{toctree}
