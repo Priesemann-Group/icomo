@@ -9,6 +9,10 @@ terminal:
 $ pip install icomo
 ```
 
+It might be the case that the system doesn't find the graphviz software installed via
+pip. This is needed to display the flows between compartment In this case follow the
+installation instructions from the [graphviz website](https://graphviz.org/download/). 
+
 To run all the examples, you might also want to install the optional dependencies:
 
 ```bash
