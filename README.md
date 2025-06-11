@@ -32,6 +32,11 @@ projects.
 * Integrate the ODEs using diffrax, automatically generating the Jacobian of the parameters of the ODE
 * Fit the parameters using minimization algorithms or build a Bayesian model using PyMC.
 
+### Citation
+
+If you use this toolbox in your research, please find the citation information on
+the right sidebar.
+
 ### Credits
 
 Logo by [Fabian Mikulasch](https://scholar.google.com/citations?user=ZWWBIoUAAAAJ&hl=en)
