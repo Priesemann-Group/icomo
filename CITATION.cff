@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Dehning
+  given-names: Jonas
+  orcid: https://orcid.org/0000-0002-1728-2505
+doi: 10.5281/zenodo.15641362
+title: ICoMo (Inference of Compartmental Models)
+repository-code: 'https://github.com/Priesemann-Group/icomo'
+url: 'https://icomo.readthedocs.io/en/latest/'
+version: 1.0.3
+date-released: 2025-03-07
