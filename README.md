@@ -37,6 +37,10 @@ projects.
 If you use this toolbox in your research, please find the citation information on
 the right sidebar.
 
+### Acknowledgements
+
+This project was supported by the Max Planck Society and by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) - Project-ID 454648639 - SFB 1528.
+
 ### Credits
 
 Logo by [Fabian Mikulasch](https://scholar.google.com/citations?user=ZWWBIoUAAAAJ&hl=en)
