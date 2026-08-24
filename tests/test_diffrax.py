@@ -32,7 +32,8 @@ def ode_models():
         dt0 = 0.1
         y0 = (prey_0, predator_0)
         # args = (0.1, 0.02, 0.4, 0.02)
-        saveat = diffrax.SaveAt(ts=jnp.linspace(t0, t1, 100))
+        num_save_points = 100
+        saveat = diffrax.SaveAt(ts=jnp.linspace(t0, t1, num_save_points))
 
         diffeqsolve = jax2pytensor(diffrax.diffeqsolve)
 
@@ -61,7 +62,8 @@ def ode_models():
         diffeqsolve = jax2pytensor(diffrax.diffeqsolve)
 
         sol = diffeqsolve(term, solver, t0, t1, dt0, y0=y0, args=args, saveat=saveat)
-        pm.Normal("obs", sol.ys, observed=np.array([[3, 3]]))
+        observed = np.full((num_save_points, 2), 3.0)
+        pm.Normal("obs", sol.ys, observed=observed)
 
     def Erlang_SEIR_v2(t, y, args):
         beta_t_func = args["beta_t_func"]
