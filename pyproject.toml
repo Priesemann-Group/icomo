@@ -22,7 +22,7 @@ classifiers = [
 dynamic = ["version"]
 requires-python = '>=3.10'
 dependencies = [
-    "pymc == 5.*",
+    "pymc >= 5" ,
     "equinox",
     "diffrax",
     "pytensor",
@@ -39,6 +39,8 @@ opt = [
     "equinox",
     "jaxtyping",
     "optimistix",
+    "matplotlib",
+    "packaging",
 ]
 dev = [
     "icomo[opt]",
@@ -52,6 +54,8 @@ dev = [
     "importlib-metadata >= 6.5.1",
     "myst-parser >= 0.19.2",
     "nbsphinx >= 0.9.2",
+    "nbclient",
+    "nbformat",
     "pandoc >= 2.3",
     "pytest-beartype",
     "sphinx-autodoc-typehints"
@@ -70,6 +74,9 @@ testpaths = [
 ]
 beartype_packages = 'icomo'
 addopts = "--doctest-modules"
+markers = [
+    "notebook: slow tests that execute documentation notebooks",
+]
 
 
 
@@ -107,8 +114,4 @@ packages = ["icomo"]
 write_to = "icomo/_version.py"
 
 [tool.uv]
-# constraint-dependencies = ["numpy<2"]
-
-
-
-
+# constraint-de pendencies = ["numpy<2"]
