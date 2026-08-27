@@ -24,7 +24,7 @@ requires-python = '>=3.10'
 dependencies = [
     "pymc >= 5" ,
     "equinox",
-    "diffrax",
+    "diffrax!=0.7.1,!=0.7.2",
     "pytensor",
     "graphviz",
     "jax",
@@ -74,9 +74,6 @@ testpaths = [
 ]
 beartype_packages = 'icomo'
 addopts = "--doctest-modules"
-markers = [
-    "notebook: slow tests that execute documentation notebooks",
-]
 
 
 

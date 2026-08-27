@@ -91,6 +91,7 @@ ENV/
 # sphinx build & templates directory
 docs/_build/
 docs/_templates/
+docs/jupyter_execute/
 
 
 # mypy
